@@ -48,9 +48,9 @@
 
 - 🪵 **[Ahuzat Bait](https://www.ahuzat-bait.com)** — Custom ERP + brand site for a wooden-shutter manufacturer (orders, production, dispatch, customer portal).
 - 👶 **[BabySister.nl](https://www.babysister.nl)** — Booking platform for an Amsterdam babysitting service (multi-language, payments, scheduling).
-- 🛡️ **Vguard** — Security scanner for vibe-coded apps (in private beta).
+- 🛡️ **[V-Guards](https://v-guards.com)** — Security scanner for vibe-coded apps — passive headers + browser-assisted + deep authenticated scanning. Live at [v-guards.com](https://v-guards.com).
 
-More case studies → [roiai.co.il/case-studies](https://roiai.co.il#work)
+More case studies → [roiai.co.il#work](https://roiai.co.il#work)
 
 ---
 
