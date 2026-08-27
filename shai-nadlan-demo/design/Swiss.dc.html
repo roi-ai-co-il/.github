@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #1B4DFF; } a:hover { color: #0033D6; }
+  </style>
+</helmet>
+
+<div dir="rtl" style="width: 390px; height: 844px; box-sizing: border-box; background: #FFFFFF; font-family: 'Noto Sans Hebrew', 'Segoe UI', system-ui, sans-serif; overflow: hidden; display: flex; flex-direction: column;">
+
+  <!-- Index header -->
+  <div style="padding: 24px 22px 0; display: flex; align-items: baseline; justify-content: space-between;">
+    <span style="font-size: 11px; font-weight: 500; color: #111111; letter-spacing: 0.2em;">תיק · שי עובדיה</span>
+    <span style="font-size: 11px; color: #999999; letter-spacing: 0.08em;">27.08</span>
+  </div>
+  <div style="height: 2px; background: #111111; margin: 12px 22px 0;"></div>
+
+  <!-- The number is the page -->
+  <div style="padding: 26px 22px 0; display: flex; flex-direction: column; gap: 4px;">
+    <span style="font-size: 11px; color: #999999; letter-spacing: 0.16em;">שווי</span>
+    <span style="font-size: 46px; font-weight: 700; color: #111111; letter-spacing: -0.045em; line-height: 0.95; white-space: nowrap;">61,550,000</span>
+  </div>
+
+  <!-- Figures as an index table -->
+  <div style="margin: 26px 22px 0; display: flex; flex-direction: column;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; padding: 11px 0; border-top: 1px solid #111111;">
+      <span style="font-size: 13px; color: #555555;">הכנסה חודשית</span>
+      <span style="font-size: 17px; font-weight: 500; color: #111111; letter-spacing: -0.02em; white-space: nowrap;">147,200</span>
+    </div>
+    <div style="display: flex; align-items: baseline; justify-content: space-between; padding: 11px 0; border-top: 1px solid #E2E2E2;">
+      <span style="font-size: 13px; color: #555555;">תשואה ברוטו</span>
+      <span style="font-size: 17px; font-weight: 500; color: #111111; letter-spacing: -0.02em;">2.9%</span>
+    </div>
+    <div style="display: flex; align-items: baseline; justify-content: space-between; padding: 11px 0; border-top: 1px solid #E2E2E2; border-bottom: 1px solid #E2E2E2;">
+      <span style="font-size: 13px; color: #555555;">נכסים</span>
+      <span style="font-size: 17px; font-weight: 500; color: #111111; letter-spacing: -0.02em;">21</span>
+    </div>
+  </div>
+
+  <!-- Alert: the one place colour appears -->
+  <div style="margin: 24px 22px 0; background: #1B4DFF; padding: 15px 16px; display: flex; align-items: center; gap: 13px;">
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+      <span style="font-size: 10px; color: rgba(255,255,255,0.72); letter-spacing: 0.16em;">חוזה שפג</span>
+      <span style="font-size: 15px; font-weight: 500; color: #FFFFFF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">דירת גן ברמת השרון</span>
+      <span style="font-size: 12px; color: rgba(255,255,255,0.75);">אבי פרץ · 11,200 ₪</span>
+    </div>
+    <span style="font-size: 30px; font-weight: 700; color: #FFFFFF; letter-spacing: -0.04em; line-height: 1; flex-shrink: 0;">44<span style="font-size: 11px; font-weight: 400; letter-spacing: 0.06em;"> יום</span></span>
+  </div>
+
+  <!-- Property: plate + caption, no card -->
+  <div style="margin: 26px 22px 0; display: flex; align-items: center; gap: 10px;">
+    <span style="font-size: 11px; color: #999999; letter-spacing: 0.16em; white-space: nowrap;">נכס 01</span>
+    <div style="flex-grow: 1; height: 1px; background: #E2E2E2;"></div>
+  </div>
+
+  <div style="margin: 12px 22px 0;">
+    <img src="rothschild.jpg" alt="" style="width: 100%; height: 150px; object-fit: cover; display: block; filter: grayscale(1) contrast(1.08);">
+  </div>
+
+  <div style="margin: 12px 22px 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+    <div style="min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+      <span style="font-size: 16px; font-weight: 500; color: #111111; letter-spacing: -0.015em;">דירת 4 חד׳ ברוטשילד</span>
+      <span style="font-size: 12px; color: #999999;">שדרות רוטשילד 45, תל אביב</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 3px; align-items: flex-end; flex-shrink: 0;">
+      <span style="font-size: 16px; font-weight: 500; color: #111111; letter-spacing: -0.02em; white-space: nowrap;">4,500,000</span>
+      <span style="font-size: 12px; color: #1B4DFF; font-weight: 500; white-space: nowrap;">9,800 / חודש</span>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1;"></div>
+
+  <!-- Tab bar: numbered index, hairline only -->
+  <div style="border-top: 2px solid #111111; display: flex; align-items: stretch; justify-content: space-between; padding: 0 22px 24px;">
+    <div style="display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 56px; min-height: 44px; padding-top: 12px;">
+      <span style="font-size: 9px; color: #1B4DFF; letter-spacing: 0.1em;">01</span>
+      <span style="font-size: 12px; font-weight: 500; color: #111111;">בית</span>
+    </div>
+    <div style="display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 56px; min-height: 44px; padding-top: 12px;">
+      <span style="font-size: 9px; color: #CCCCCC; letter-spacing: 0.1em;">02</span>
+      <span style="font-size: 12px; color: #999999;">נכסים</span>
+    </div>
+    <div style="display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 56px; min-height: 44px; padding-top: 12px;">
+      <span style="font-size: 9px; color: #CCCCCC; letter-spacing: 0.1em;">03</span>
+      <span style="font-size: 12px; color: #999999;">חוזים</span>
+    </div>
+    <div style="display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 56px; min-height: 44px; padding-top: 12px;">
+      <span style="font-size: 9px; color: #CCCCCC; letter-spacing: 0.1em;">04</span>
+      <span style="font-size: 12px; color: #999999;">הוספה</span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

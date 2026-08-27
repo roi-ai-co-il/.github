@@ -1,0 +1,127 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #C2410C; } a:hover { color: #9A3412; }
+  </style>
+</helmet>
+
+<div dir="rtl" style="width: 390px; height: 844px; box-sizing: border-box; background: #F6F4F1; font-family: Rubik, 'Segoe UI', system-ui, sans-serif; overflow: hidden; display: flex; flex-direction: column;">
+
+  <!-- Top bar -->
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 14px;">
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <span style="font-size: 12px; color: #8A8378; letter-spacing: 0.04em;">יום חמישי, 27 באוגוסט</span>
+      <span style="font-size: 22px; font-weight: 600; color: #1A1815; letter-spacing: -0.02em;">התיק של שי</span>
+    </div>
+    <div style="width: 40px; height: 40px; border-radius: 14px; background: #1A1815; display: flex; align-items: center; justify-content: center;">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#F6F4F1" stroke-width="2" stroke-linejoin="round"><path d="M4 20V9l8-5 8 5v11h-5v-7h-6v7z"/></svg>
+    </div>
+  </div>
+
+  <!-- Bento grid -->
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0 20px;">
+
+    <!-- Hero tile, spans both columns -->
+    <div style="grid-column: span 2; background: #1A1815; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; align-items: baseline; justify-content: space-between;">
+        <span style="font-size: 12px; color: #9A9287; letter-spacing: 0.06em;">שווי התיק</span>
+        <span style="font-size: 12px; color: #E8622A; font-weight: 500;">21 נכסים</span>
+      </div>
+      <div style="font-size: 38px; font-weight: 600; color: #FBFAF8; letter-spacing: -0.035em; line-height: 1; white-space: nowrap;">₪61,550,000</div>
+      <div style="display: flex; gap: 3px; height: 26px; align-items: flex-end;">
+        <div style="flex: 1; height: 40%; background: #3A352E; border-radius: 3px;"></div>
+        <div style="flex: 1; height: 55%; background: #3A352E; border-radius: 3px;"></div>
+        <div style="flex: 1; height: 48%; background: #3A352E; border-radius: 3px;"></div>
+        <div style="flex: 1; height: 70%; background: #3A352E; border-radius: 3px;"></div>
+        <div style="flex: 1; height: 62%; background: #3A352E; border-radius: 3px;"></div>
+        <div style="flex: 1; height: 85%; background: #E8622A; border-radius: 3px;"></div>
+        <div style="flex: 1; height: 100%; background: #E8622A; border-radius: 3px;"></div>
+      </div>
+    </div>
+
+    <!-- Monthly income -->
+    <div style="background: #FFFFFF; border-radius: 24px; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8622A" stroke-width="2" stroke-linecap="round"><path d="M3 7h18v12H3z"/><path d="M3 11h18"/></svg>
+      <span style="font-size: 11px; color: #8A8378;">הכנסה חודשית</span>
+      <span style="font-size: 21px; font-weight: 600; color: #1A1815; letter-spacing: -0.02em; white-space: nowrap;">₪147,200</span>
+    </div>
+
+    <!-- Yield -->
+    <div style="background: #FFFFFF; border-radius: 24px; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A7C59" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l5-5 4 4 7-8"/><path d="M15 7h5v5"/></svg>
+      <span style="font-size: 11px; color: #8A8378;">תשואה ברוטו</span>
+      <span style="font-size: 21px; font-weight: 600; color: #1A1815; letter-spacing: -0.02em;">2.9%</span>
+    </div>
+  </div>
+
+  <!-- Alert -->
+  <div style="margin: 16px 20px 0; background: #FFFFFF; border-radius: 24px; padding: 16px; display: flex; align-items: center; gap: 13px;">
+    <div style="width: 42px; height: 42px; border-radius: 14px; background: #FDECE6; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#D64518" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5v.01"/></svg>
+    </div>
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+      <span style="font-size: 14px; font-weight: 500; color: #1A1815; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">דירת גן ברמת השרון</span>
+      <span style="font-size: 12px; color: #8A8378;">אבי פרץ · ₪11,200</span>
+    </div>
+    <span style="font-size: 11px; font-weight: 500; color: #D64518; background: #FDECE6; border-radius: 999px; padding: 6px 10px; white-space: nowrap; flex-shrink: 0;">פג לפני 44 יום</span>
+  </div>
+
+  <!-- Property card -->
+  <div style="margin: 10px 20px 0; background: #FFFFFF; border-radius: 26px; overflow: hidden;">
+    <div style="position: relative; height: 132px;">
+      <img src="rothschild.jpg" alt="" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+      <span style="position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.94); color: #1A1815; font-size: 11px; font-weight: 500; border-radius: 999px; padding: 5px 11px;">מושכר</span>
+    </div>
+    <div style="padding: 15px 17px 17px; display: flex; flex-direction: column; gap: 11px;">
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <span style="font-size: 16px; font-weight: 600; color: #1A1815; letter-spacing: -0.01em;">דירת 4 חד׳ ברוטשילד</span>
+        <span style="font-size: 12px; color: #8A8378;">שדרות רוטשילד 45, תל אביב</span>
+      </div>
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; border-top: 1px solid #EDEAE5; padding-top: 11px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 10px; color: #A39B90;">שווי</span>
+          <span style="font-size: 15px; font-weight: 600; color: #1A1815; white-space: nowrap;">₪4,500,000</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px; align-items: flex-end;">
+          <span style="font-size: 10px; color: #A39B90;">שכירות</span>
+          <span style="font-size: 15px; font-weight: 600; color: #E8622A; white-space: nowrap;">₪9,800</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1;"></div>
+
+  <!-- Tab bar -->
+  <div style="display: flex; align-items: center; justify-content: space-around; padding: 12px 16px 24px; background: #FFFFFF; border-top: 1px solid #EDEAE5;">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 56px; min-height: 44px; justify-content: center;">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#E8622A" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+      <span style="font-size: 10px; color: #E8622A; font-weight: 500;">בית</span>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 56px; min-height: 44px; justify-content: center;">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#B5ADA2" stroke-width="2" stroke-linejoin="round"><path d="M4 20V9l8-5 8 5v11h-5v-7h-6v7z"/></svg>
+      <span style="font-size: 10px; color: #B5ADA2;">נכסים</span>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 56px; min-height: 44px; justify-content: center;">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#B5ADA2" stroke-width="2" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg>
+      <span style="font-size: 10px; color: #B5ADA2;">חוזים</span>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 56px; min-height: 44px; justify-content: center;">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#B5ADA2" stroke-width="2" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      <span style="font-size: 10px; color: #B5ADA2;">הוספה</span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
