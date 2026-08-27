@@ -73,7 +73,7 @@ export default function AppShell({ children, email }: { children: React.ReactNod
             </div>
             <div className="leading-tight">
               <span className="text-ink-muted font-semibold text-sm md:text-base tracking-tight block">שי עובדיה</span>
-              <span className="text-brand-gray-light text-[10px] tracking-widest font-medium hidden sm:block">ניהול תיק נדל”ן</span>
+              <span className="text-brand-gray-light text-[10px] tracking-widest font-medium hidden sm:block">ניהול תיק נדל״ן</span>
             </div>
           </Link>
 
@@ -158,7 +158,7 @@ export default function AppShell({ children, email }: { children: React.ReactNod
 
       {/* ── Footer (desktop only) ───────────────────────── */}
       <footer className="hidden md:block text-center py-5 text-xs text-brand-gray-light/50 font-medium shrink-0">
-        <span>© {new Date().getFullYear()} שי עובדיה · ניהול נדל”ן — פותח על ידי </span>
+        <span>© {new Date().getFullYear()} שי עובדיה · ניהול נדל״ן — פותח על ידי </span>
         <a href="https://roiai.co.il" target="_blank" rel="noopener noreferrer" className="text-gold/70 hover:text-gold transition-colors">
           ROI AI
         </a>

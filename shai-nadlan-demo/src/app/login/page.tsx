@@ -48,7 +48,7 @@ export default function LoginPage() {
             <Building2 size={30} className="text-gold" strokeWidth={1.5} />
           </div>
           <h1 className="mt-5 text-2xl font-bold text-white tracking-tight">שי עובדיה</h1>
-          <p className="mt-1 text-sm text-ink-muted/70 tracking-widest font-medium">ניהול תיק נדל”ן</p>
+          <p className="mt-1 text-sm text-ink-muted/70 tracking-widest font-medium">ניהול תיק נדל״ן</p>
           <div className="mt-5 h-px bg-gradient-to-l from-transparent via-gold/40 to-transparent" />
         </div>
 
