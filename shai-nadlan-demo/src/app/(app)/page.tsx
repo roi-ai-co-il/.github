@@ -127,7 +127,7 @@ export default async function DashboardPage() {
 
       {/* ── Row 2: Occupancy ───────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-4 ios-stagger">
-        <StatCard title="סה”כ נכסים" value={props.length} icon={Building2} iconColor="text-gold-deep" />
+        <StatCard title="סה״כ נכסים" value={props.length} icon={Building2} iconColor="text-gold-deep" />
         <StatCard title="מושכרים" value={rented} icon={KeyRound} iconColor="text-green-600" />
         <StatCard title="פנויים" value={vacant} icon={Building2} iconColor="text-amber-600" />
         <StatCard title="חוזים פעילים" value={activeLeases.length} icon={FileText} iconColor="text-sky-600" />
