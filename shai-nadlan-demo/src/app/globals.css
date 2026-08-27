@@ -1,0 +1,164 @@
+@import "tailwindcss";
+
+/* ── Hide scrollbar utility ──────────────────────── */
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ── Safe areas (iPhone notch / home indicator) ──────── */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.safe-top { padding-top: env(safe-area-inset-top, 0px); }
+
+/* ── App shell: the DOCUMENT never scrolls inside the app ──
+   The shell is exactly one viewport tall, only `main` scrolls, and the
+   bottom nav is an ordinary flex child that cannot detach from the bottom.
+   Scoped to `.app-shell-locked` so the login page keeps normal scrolling. */
+html, body { height: 100%; }
+body.app-shell-locked { overflow: hidden; overscroll-behavior: none; }
+
+/* ── iOS input zoom guard ─────────────────────────────
+   iOS Safari auto-zooms when a focused input's font-size is under 16px. */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ── Brand tokens — estate style (אחוזת בית DNA) ─────── */
+@theme {
+  --color-brand-parchment:  #F5F0E8;
+  --color-brand-sand:       #D8C4A6;
+  --color-brand-brown:      #4C3B22;
+  --color-brand-dark:       #1C1A18;
+  --color-brand-gray:       #62615E;
+  --color-brand-gray-light: #8C8278;
+  --color-brand-beige:      #E8DCCA;
+  --color-brand-offwhite:   #F7F3ED;
+
+  /* Fixed "ink" plaque — never inverts in dark mode */
+  --color-ink:       #1C1A18;
+  --color-ink-muted: #D8C4A6;
+
+  /* Text that sits on the inverting bg-brand-dark */
+  --color-on-brand-dark: #FFFFFF;
+
+  /* Matte gold system */
+  --color-gold:       #D4AF37;
+  --color-gold-light: #E8D48B;
+  --color-gold-deep:  #B8962E;
+
+  --font-family-heebo: var(--font-heebo), "Heebo", sans-serif;
+}
+
+/* ── Dark mode overrides (warm dark, not gray) ─────────── */
+.dark {
+  --color-brand-parchment: #0f0e0d;
+  --color-brand-sand: #2a2520;
+  --color-brand-brown: #E8DCCA;
+  --color-brand-dark: #F5F0E8;
+  --color-brand-gray: #a09890;
+  --color-brand-gray-light: #706860;
+  --color-brand-beige: #1e1a16;
+  --color-brand-offwhite: #1a1816;
+  --color-on-brand-dark: #1C1A18;
+}
+.dark body { color: #E8DCCA; }
+.dark .bg-white\/80, .dark .bg-white\/70, .dark .bg-white\/60, .dark .bg-white\/50 {
+  background-color: rgba(30, 26, 22, 0.8) !important;
+}
+.dark .bg-white\/95, .dark .bg-white\/90 {
+  background-color: rgba(30, 26, 22, 0.95) !important;
+}
+.dark .border-white\/20, .dark .border-white\/25, .dark .border-white\/30 {
+  border-color: rgba(212, 175, 55, 0.08) !important;
+}
+.dark .text-brand-brown { color: #E8DCCA; }
+.dark .shadow-xl, .dark .shadow-2xl { --tw-shadow-color: rgba(0,0,0,0.3); }
+.dark input, .dark select, .dark textarea {
+  background-color: rgba(30, 26, 22, 0.6) !important;
+  color: #E8DCCA !important;
+  border-color: rgba(212, 175, 55, 0.15) !important;
+}
+.dark table thead tr { background-color: rgba(30, 26, 22, 0.8) !important; }
+.dark .bg-white         { background-color: #1e1a16 !important; }
+.dark .bg-gray-50       { background-color: #1a1714 !important; }
+.dark .bg-gray-100      { background-color: #221d18 !important; }
+.dark .text-gray-900    { color: #E8DCCA !important; }
+.dark .text-gray-700    { color: #b8aa92 !important; }
+.dark .text-gray-600    { color: #9d8f78 !important; }
+.dark .text-gray-500    { color: #807462 !important; }
+.dark .text-gray-400    { color: #6b6055 !important; }
+.dark .border-gray-100  { border-color: #2a241e !important; }
+.dark .border-gray-200  { border-color: #342c24 !important; }
+.dark .hover\:bg-gray-50:hover { background-color: #221d18 !important; }
+
+/* ── Base ──────────────────────────────────────── */
+body {
+  font-family: var(--font-family-heebo);
+  background-color: var(--color-brand-parchment);
+  color: var(--color-brand-dark);
+  direction: rtl;
+  overscroll-behavior-y: contain;
+  overflow-x: hidden;
+}
+
+/* ── Scrollbar styling ────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-brand-parchment); }
+::-webkit-scrollbar-thumb { background: var(--color-brand-sand); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-gold); }
+
+/* ── iOS card press effect ─────────────────────────── */
+.ios-press {
+  transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.15s ease;
+}
+.ios-press:active { transform: scale(0.97); }
+
+/* ── iOS touch target (minimum 44px) ──────────────────── */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── iOS stagger fade-in for lists ────────────────────── */
+@keyframes ios-stagger {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ios-stagger > * {
+  animation: ios-stagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.ios-stagger > *:nth-child(1) { animation-delay: 0s; }
+.ios-stagger > *:nth-child(2) { animation-delay: 0.05s; }
+.ios-stagger > *:nth-child(3) { animation-delay: 0.1s; }
+.ios-stagger > *:nth-child(4) { animation-delay: 0.15s; }
+.ios-stagger > *:nth-child(5) { animation-delay: 0.2s; }
+.ios-stagger > *:nth-child(6) { animation-delay: 0.25s; }
+.ios-stagger > *:nth-child(7) { animation-delay: 0.3s; }
+.ios-stagger > *:nth-child(8) { animation-delay: 0.35s; }
+
+@keyframes ios-fade-in {
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-ios-fade-in { animation: ios-fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes gold-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.animate-gold-pulse { animation: gold-pulse 2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ios-stagger > *, .animate-ios-fade-in, .animate-gold-pulse { animation: none; }
+  .ios-press, .ios-press:active { transition: none; transform: none; }
+}
+
+/* ── Hide number input spin buttons ───────────────────── */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
