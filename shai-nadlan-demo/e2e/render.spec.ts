@@ -10,8 +10,18 @@ const COOKIE_NAME = process.env.E2E_COOKIE_NAME ?? 'sb-thmkokzalrgwzhdbiabi-auth
 test.skip(!COOKIE_VALUE, 'E2E_SESSION_COOKIE is not set — see e2e/README.md');
 
 async function authenticate(page: Page) {
+  // Scope the cookie to whichever host the suite is aimed at, so the same
+  // tests can be run against a deployment instead of only localhost.
+  const base = process.env.E2E_BASE_URL ?? 'http://localhost:3100';
+  const { hostname, protocol } = new URL(base);
   await page.context().addCookies([
-    { name: COOKIE_NAME, value: COOKIE_VALUE!, domain: 'localhost', path: '/' },
+    {
+      name: COOKIE_NAME,
+      value: COOKIE_VALUE!,
+      domain: hostname,
+      path: '/',
+      secure: protocol === 'https:',
+    },
   ]);
 }
 
