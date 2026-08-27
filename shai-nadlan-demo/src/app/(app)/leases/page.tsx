@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { FileText, AlertTriangle, CalendarClock, Phone, MessageSquare } from 'lucide-react';
+import { FileText, AlertCircle, CheckCircle2, Phone, MessageSquare, ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ILS, heDate, daysUntil, waLink } from '@/lib/format';
 import { leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
-import { SectionCard, EmptyState, GoldDivider } from '@/components/ui';
+import { Group, Rows, EmptyState } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,40 +39,50 @@ export default async function LeasesPage() {
   const monthlyTotal = leases.reduce((s, l) => s + l.monthly_rent, 0);
 
   return (
-    <div className="space-y-5 md:space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-brand-brown">חוזי שכירות</h1>
-        <p className="text-xs md:text-sm text-brand-gray-light mt-1">
-          {leases.length} חוזים פעילים · {ILS(monthlyTotal)} הכנסה חודשית
+        <h1 className="text-[30px] font-bold text-label tracking-tight leading-tight">חוזים</h1>
+        <p className="text-[13px] text-label-tertiary mt-0.5">
+          {leases.length} פעילים · {ILS(monthlyTotal)} לחודש
         </p>
       </div>
 
-      <GoldDivider />
-
       {leases.length === 0 && (
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 shadow-xl shadow-black/[0.03]">
+        <div className="bg-surface rounded-2xl border border-separator">
           <EmptyState icon={FileText} text="אין חוזים פעילים עדיין" />
         </div>
       )}
 
       {attention.length > 0 && (
-        <SectionCard title="דורשים טיפול (עד 90 יום)" icon={AlertTriangle}>
-          <div className="divide-y divide-gold/8">
-            {attention.map((l) => (
-              <LeaseItem key={l.id} lease={l} />
-            ))}
-          </div>
-        </SectionCard>
+        <Group
+          title="דורש טיפול"
+          action={
+            <span className="flex items-center gap-1 text-[13px] font-semibold text-danger">
+              <AlertCircle size={14} strokeWidth={2.5} />
+              עד 90 יום
+            </span>
+          }
+        >
+          <Rows>
+            {attention.map((l) => <LeaseItem key={l.id} lease={l} />)}
+          </Rows>
+        </Group>
       )}
 
       {rest.length > 0 && (
-        <SectionCard title="חוזים תקינים" icon={CalendarClock}>
-          <div className="divide-y divide-gold/8">
-            {rest.map((l) => (
-              <LeaseItem key={l.id} lease={l} />
-            ))}
-          </div>
-        </SectionCard>
+        <Group
+          title="תקינים"
+          action={
+            <span className="flex items-center gap-1 text-[13px] font-semibold text-success">
+              <CheckCircle2 size={14} strokeWidth={2.5} />
+              {rest.length}
+            </span>
+          }
+        >
+          <Rows>
+            {rest.map((l) => <LeaseItem key={l.id} lease={l} />)}
+          </Rows>
+        </Group>
       )}
     </div>
   );
@@ -87,55 +97,53 @@ function LeaseItem({ lease }: { lease: LeaseRow & { days: number } }) {
   const progress = totalDays > 0 ? Math.min(100, Math.max(0, (elapsed / totalDays) * 100)) : 100;
 
   return (
-    <div className="p-4 md:px-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <Link
-            href={`/properties/${lease.property?.id}`}
-            className="font-bold text-brand-brown hover:text-gold-deep transition-colors text-sm md:text-base block truncate"
-          >
-            {lease.property?.name} · {lease.property?.city}
-          </Link>
-          <p className="text-xs text-brand-gray-light mt-0.5 truncate">
+    <div className="px-4 py-3.5">
+      <div className="flex items-start gap-3">
+        <Link href={`/properties/${lease.property?.id}`} className="press-row flex-1 min-w-0 -m-1 p-1 rounded-lg">
+          <div className="flex items-center gap-1.5">
+            <p className="font-semibold text-[15px] text-label truncate">{lease.property?.name}</p>
+            <ChevronLeft size={15} className="text-label-tertiary shrink-0" strokeWidth={2.5} />
+          </div>
+          <p className="text-[13px] text-label-secondary truncate mt-0.5">
             {lease.tenant?.full_name}
-            {lease.linked_to_cpi && <span className="mr-2 text-[10px] font-semibold text-gold-deep bg-gold/10 rounded-full px-2 py-0.5">צמוד מדד</span>}
+            {lease.linked_to_cpi && (
+              <span className="mr-2 text-[11px] font-semibold text-info bg-info-tint rounded-full px-2 py-0.5">
+                צמוד מדד
+              </span>
+            )}
           </p>
-        </div>
+        </Link>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
-          <span className="font-bold text-gold-deep text-sm whitespace-nowrap">{ILS(lease.monthly_rent)}<span className="text-[10px] font-medium text-brand-gray-light"> / חודש</span></span>
-          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${style.text} ${style.bg} ${style.border}`}>
+          <span className="font-semibold text-[15px] text-label whitespace-nowrap">{ILS(lease.monthly_rent)}</span>
+          <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${style.text} ${style.bg}`}>
             {style.label(lease.days)}
           </span>
         </div>
       </div>
 
-      {/* Term progress */}
       <div className="mt-3">
-        <div className="flex items-center justify-between text-[10px] text-brand-gray-light mb-1">
+        <div className="flex items-center justify-between text-[11px] text-label-tertiary mb-1">
           <span>{heDate(lease.start_date)}</span>
           <span>{heDate(lease.end_date)}</span>
         </div>
-        <div className="h-1.5 rounded-full bg-brand-beige/50 overflow-hidden">
-          <div
-            className={`h-full rounded-full ${urgency === 'ok' ? 'bg-green-500' : urgency === 'soon' ? 'bg-amber-400' : 'bg-red-500'}`}
-            style={{ width: `${progress}%` }}
-          />
+        <div className="h-1 rounded-full bg-fill overflow-hidden">
+          <div className={`h-full rounded-full ${style.bar}`} style={{ width: `${progress}%` }} />
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-2.5">
+      <div className="flex items-center justify-between gap-3 mt-2">
         {lease.notes ? (
-          <p className="text-[11px] text-brand-gray-light truncate ml-3">{lease.notes}</p>
+          <p className="text-[12px] text-label-tertiary truncate">{lease.notes}</p>
         ) : <span />}
         {lease.tenant?.phone && (
-          <div className="flex items-center gap-0.5 shrink-0">
-            <a href={waLink(lease.tenant.phone)} target="_blank" rel="noreferrer" title="וואטסאפ לשוכר"
-              className="touch-target rounded-xl hover:bg-gold/10 text-brand-gray-light hover:text-green-600 active:scale-95 transition-all">
-              <MessageSquare size={17} />
+          <div className="flex items-center shrink-0 -mb-1">
+            <a href={waLink(lease.tenant.phone)} target="_blank" rel="noreferrer"
+              className="press touch-target rounded-full text-label-tertiary hover:text-success" title="וואטסאפ לשוכר">
+              <MessageSquare size={18} strokeWidth={2} />
             </a>
-            <a href={`tel:${lease.tenant.phone}`} title="התקשר לשוכר"
-              className="touch-target rounded-xl hover:bg-gold/10 text-brand-gray-light hover:text-green-700 active:scale-95 transition-all">
-              <Phone size={17} />
+            <a href={`tel:${lease.tenant.phone}`}
+              className="press touch-target rounded-full text-label-tertiary hover:text-accent" title="התקשר לשוכר">
+              <Phone size={18} strokeWidth={2} />
             </a>
           </div>
         )}

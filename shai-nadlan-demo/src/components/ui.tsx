@@ -1,69 +1,110 @@
 import type { ElementType, ReactNode } from 'react';
 import { PROPERTY_STATUS } from '@/lib/domain';
 
-export function StatCard({ title, value, sub, icon: Icon, iconColor }: {
+/** iOS icon chip: a tinted rounded square with the glyph in the same hue. */
+export function IconChip({ icon: Icon, tone = 'accent', size = 'md' }: {
+  icon: ElementType;
+  tone?: 'accent' | 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+  size?: 'sm' | 'md';
+}) {
+  const tones: Record<string, string> = {
+    accent: 'bg-accent-tint text-accent',
+    success: 'bg-success-tint text-success',
+    warning: 'bg-warning-tint text-warning',
+    danger: 'bg-danger-tint text-danger',
+    info: 'bg-info-tint text-info',
+    neutral: 'bg-fill text-neutral',
+  };
+  const box = size === 'sm' ? 'w-8 h-8 rounded-[10px]' : 'w-10 h-10 rounded-xl';
+  return (
+    <div className={`${box} ${tones[tone]} flex items-center justify-center shrink-0`}>
+      <Icon size={size === 'sm' ? 16 : 19} strokeWidth={2} />
+    </div>
+  );
+}
+
+export function StatCard({ title, value, sub, icon, tone = 'accent' }: {
   title: string;
   value: string | number;
   sub?: string;
   icon: ElementType;
-  iconColor: string;
+  tone?: 'accent' | 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 }) {
   return (
-    <div className="ios-press bg-white/80 backdrop-blur-xl rounded-2xl md:rounded-3xl border border-white/20 p-3 md:p-5 flex items-center gap-3 md:gap-4 shadow-xl shadow-black/[0.03] hover:shadow-2xl hover:shadow-gold/15 hover:border-gold/30 hover:-translate-y-0.5 transition-all duration-200 group cursor-default">
-      <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shrink-0 bg-white/60 border border-gold/10 shadow-sm transition-transform duration-300 group-hover:scale-110">
-        <Icon size={20} className={iconColor} />
+    <div className="press bg-surface rounded-2xl border border-separator p-3.5 md:p-4">
+      <div className="flex items-center gap-2.5">
+        <IconChip icon={icon} tone={tone} size="sm" />
+        <p className="text-[13px] text-label-secondary font-medium leading-tight">{title}</p>
       </div>
-      <div className="min-w-0">
-        <p className="text-xs text-brand-gray-light font-medium tracking-wide">{title}</p>
-        {/* No truncate on money: in RTL it eats the LEADING digits. */}
-        <p className={`font-bold text-brand-brown mt-0.5 whitespace-nowrap leading-tight ${String(value).length > 8 ? 'text-sm md:text-lg' : 'text-base md:text-xl'}`}>
-          {value}
-        </p>
-        {sub && <p className="text-[10px] text-brand-gray-light mt-0.5">{sub}</p>}
-      </div>
+      {/* No truncate on money: in RTL it eats the LEADING digits. */}
+      <p className={`mt-2.5 font-bold text-label whitespace-nowrap leading-none tracking-tight ${
+        String(value).length > 9 ? 'text-lg md:text-xl' : 'text-[22px] md:text-2xl'
+      }`}>
+        {value}
+      </p>
+      {sub && <p className="text-[11px] text-label-tertiary mt-1.5">{sub}</p>}
     </div>
   );
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const s = PROPERTY_STATUS[status] ?? { label: status, dot: 'bg-gray-400', text: 'text-gray-700', bg: 'bg-gray-50' };
+  const s = PROPERTY_STATUS[status];
+  if (!s) return <span className="text-[13px] text-label-secondary">{status}</span>;
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${s.text} ${s.bg}`}>
-      <span className={`w-2 h-2 rounded-full ${s.dot}`} />
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold ${s.text} ${s.bg}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
       {s.label}
     </span>
   );
 }
 
-export function SectionCard({ title, icon: Icon, action, children }: {
-  title: string;
-  icon: ElementType;
+/**
+ * An iOS inset grouped list: a quiet caption above, then one rounded card
+ * whose rows are divided by hairlines rather than boxed separately.
+ */
+export function Group({ title, action, children, className = '' }: {
+  title?: string;
   action?: ReactNode;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 overflow-hidden shadow-xl shadow-black/[0.03]">
-      <div className="px-5 md:px-6 py-4 border-b border-gold/10 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Icon size={18} className="text-gold" />
-          <h2 className="text-base font-bold text-brand-brown">{title}</h2>
-        </div>
-        {action}
+    <section className={className}>
+      {(title || action) && (
+        <header className="flex items-end justify-between gap-3 px-1 mb-2">
+          {title && <h2 className="text-[15px] font-bold text-label tracking-tight">{title}</h2>}
+          {action}
+        </header>
+      )}
+      <div className="bg-surface rounded-2xl border border-separator overflow-hidden">
+        {children}
       </div>
-      {children}
-    </div>
+    </section>
   );
+}
+
+/** Rows inside a Group, divided the way iOS divides table cells. */
+export function Rows({ children }: { children: ReactNode }) {
+  return <div className="divide-y divide-separator">{children}</div>;
 }
 
 export function EmptyState({ icon: Icon, text }: { icon: ElementType; text: string }) {
   return (
-    <div className="px-6 py-14 text-center">
-      <Icon size={40} className="mx-auto text-brand-sand/60 mb-3" />
-      <p className="text-brand-gray-light text-sm">{text}</p>
+    <div className="px-6 py-12 text-center">
+      <Icon size={34} className="mx-auto text-label-tertiary mb-2.5" strokeWidth={1.5} />
+      <p className="text-label-secondary text-[15px]">{text}</p>
     </div>
   );
 }
 
-export function GoldDivider() {
-  return <div className="h-px bg-gradient-to-l from-transparent via-gold/50 to-transparent" />;
+/** A filled iOS button: solid accent, full-width by default on mobile. */
+export function PrimaryButton({ children, className = '', ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      {...rest}
+      className={`press touch-target inline-flex items-center justify-center gap-2 px-5 py-3 bg-accent text-white font-semibold text-[15px] rounded-2xl disabled:opacity-40 ${className}`}
+    >
+      {children}
+    </button>
+  );
 }

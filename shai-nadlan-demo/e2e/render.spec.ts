@@ -15,8 +15,40 @@ async function authenticate(page: Page) {
   ]);
 }
 
+/**
+ * The welcome overlay covers the screen for its first couple of seconds, which
+ * would swallow the clicks in these tests. It keys off sessionStorage, so
+ * marking the session as greeted skips it — exactly what a returning user gets.
+ * The overlay itself is covered by its own test below.
+ */
+async function skipWelcome(page: Page) {
+  await page.addInitScript(() => {
+    try {
+      sessionStorage.setItem('welcomed', '1');
+    } catch {}
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   await authenticate(page);
+  await skipWelcome(page);
+});
+
+test('welcome greets Shai by name, then gets out of the way', async ({ page, context }) => {
+  // This one wants the real first-visit behaviour.
+  await context.clearCookies();
+  await authenticate(page);
+  const fresh = await context.newPage();
+  await fresh.goto('/');
+
+  const welcome = fresh.getByRole('status');
+  await expect(welcome).toBeVisible();
+  await expect(welcome).toContainText('שי');
+
+  // It clears on its own rather than needing a dismissal.
+  await expect(welcome).toBeHidden({ timeout: 6000 });
+  await expect(fresh.getByRole('heading', { name: 'סקירה' })).toBeVisible();
+  await fresh.close();
 });
 
 test('dashboard shows portfolio totals and lease-expiry alerts', async ({ page }) => {
@@ -24,9 +56,10 @@ test('dashboard shows portfolio totals and lease-expiry alerts', async ({ page }
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: /שלום, שי/ })).toBeVisible();
-  await expect(page.getByText('שווי התיק')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'חוזים שדורשים טיפול' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'סקירה' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'דורש טיפול' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'התיק' })).toBeVisible();
+  await expect(page.getByText('שווי', { exact: true })).toBeVisible();
   await expect(page.getByText('₪', { exact: false }).first()).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
 
@@ -34,7 +67,7 @@ test('dashboard shows portfolio totals and lease-expiry alerts', async ({ page }
   expect(errors.filter((e) => !/image|unsplash|404/i.test(e))).toEqual([]);
 });
 
-test('properties grid lists the portfolio and filters', async ({ page }) => {
+test('properties grid lists the portfolio, filters and searches', async ({ page }) => {
   await page.goto('/properties');
   await expect(page.getByText('21 נכסים בתיק')).toBeVisible();
 
@@ -49,6 +82,10 @@ test('properties grid lists the portfolio and filters', async ({ page }) => {
 
   await page.getByLabel('חיפוש נכס').fill('חיפה');
   await expect(cards).toHaveCount(2);
+
+  // The clear button appears with text and empties the field.
+  await page.getByLabel('נקה חיפוש').click();
+  await expect(cards).toHaveCount(21);
 });
 
 test('property detail shows facts, gallery and the active lease', async ({ page }) => {
@@ -62,9 +99,9 @@ test('property detail shows facts, gallery and the active lease', async ({ page 
 
 test('leases page groups by urgency', async ({ page }) => {
   await page.goto('/leases');
-  await expect(page.getByRole('heading', { name: 'חוזי שכירות' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /דורשים טיפול/ })).toBeVisible();
-  await expect(page.getByText(/חוזים פעילים/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'חוזים', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'דורש טיפול' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'תקינים' })).toBeVisible();
 });
 
 test('new property form validates required fields', async ({ page }) => {

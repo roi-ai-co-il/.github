@@ -10,7 +10,7 @@
 
 /* ── App shell: the DOCUMENT never scrolls inside the app ──
    The shell is exactly one viewport tall, only `main` scrolls, and the
-   bottom nav is an ordinary flex child that cannot detach from the bottom.
+   tab bar is an ordinary flex child that cannot detach from the bottom.
    Scoped to `.app-shell-locked` so the login page keeps normal scrolling. */
 html, body { height: 100%; }
 body.app-shell-locked { overflow: hidden; overscroll-behavior: none; }
@@ -25,97 +25,112 @@ body.app-shell-locked { overflow: hidden; overscroll-behavior: none; }
   }
 }
 
-/* ── Brand tokens — estate style (אחוזת בית DNA) ─────── */
+/* ── Design tokens — iOS system language ──────────────
+   Surfaces are white, structure comes from hairline separators and a
+   single accent, the way iOS does it. Values follow Apple's system
+   palette so the app feels native next to the phone's own UI. */
 @theme {
-  --color-brand-parchment:  #F5F0E8;
-  --color-brand-sand:       #D8C4A6;
-  --color-brand-brown:      #4C3B22;
-  --color-brand-dark:       #1C1A18;
-  --color-brand-gray:       #62615E;
-  --color-brand-gray-light: #8C8278;
-  --color-brand-beige:      #E8DCCA;
-  --color-brand-offwhite:   #F7F3ED;
+  /* Surfaces */
+  --color-canvas:        #FFFFFF;  /* the page */
+  --color-surface:       #FFFFFF;  /* cards */
+  --color-surface-sunken: #F2F2F7; /* iOS systemGroupedBackground — inputs, chips */
+  --color-surface-raised: #FFFFFF;
+  --color-fill:          #78788020; /* iOS tertiary fill */
 
-  /* Fixed "ink" plaque — never inverts in dark mode */
-  --color-ink:       #1C1A18;
-  --color-ink-muted: #D8C4A6;
+  /* Text */
+  --color-label:           #000000;
+  --color-label-secondary: #3C3C4399;  /* 60% */
+  --color-label-tertiary:  #3C3C434D;  /* 30% */
 
-  /* Text that sits on the inverting bg-brand-dark */
-  --color-on-brand-dark: #FFFFFF;
+  /* Hairlines — iOS separators are thin and low-contrast on purpose */
+  --color-separator: #3C3C431F;
+  --color-border:    #3C3C4326;
 
-  /* Matte gold system */
-  --color-gold:       #D4AF37;
-  --color-gold-light: #E8D48B;
-  --color-gold-deep:  #B8962E;
+  /* Accent + semantics (iOS system colours) */
+  --color-accent:      #007AFF;
+  --color-accent-dark: #0062CC;
+  --color-success:     #34C759;
+  --color-warning:     #FF9500;
+  --color-danger:      #FF3B30;
+  --color-info:        #5856D6;
+  --color-neutral:     #8E8E93;
 
-  --font-family-heebo: var(--font-heebo), "Heebo", sans-serif;
+  /* Tinted backgrounds for badges and icon chips */
+  --color-accent-tint:  #007AFF14;
+  --color-success-tint: #34C75914;
+  --color-warning-tint: #FF950014;
+  --color-danger-tint:  #FF3B3014;
+  --color-info-tint:    #5856D614;
+
+  /* iOS uses the system face; Heebo carries the Hebrew at matching weights. */
+  --font-family-app: var(--font-heebo), -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Segoe UI", system-ui, sans-serif;
 }
 
-/* ── Dark mode overrides (warm dark, not gray) ─────────── */
+/* ── Dark mode ────────────────────────────────────────
+   True black canvas with elevated near-black cards, as iOS does on OLED. */
 .dark {
-  --color-brand-parchment: #0f0e0d;
-  --color-brand-sand: #2a2520;
-  --color-brand-brown: #E8DCCA;
-  --color-brand-dark: #F5F0E8;
-  --color-brand-gray: #a09890;
-  --color-brand-gray-light: #706860;
-  --color-brand-beige: #1e1a16;
-  --color-brand-offwhite: #1a1816;
-  --color-on-brand-dark: #1C1A18;
-}
-.dark body { color: #E8DCCA; }
-.dark .bg-white\/80, .dark .bg-white\/70, .dark .bg-white\/60, .dark .bg-white\/50 {
-  background-color: rgba(30, 26, 22, 0.8) !important;
-}
-.dark .bg-white\/95, .dark .bg-white\/90 {
-  background-color: rgba(30, 26, 22, 0.95) !important;
-}
-.dark .border-white\/20, .dark .border-white\/25, .dark .border-white\/30 {
-  border-color: rgba(212, 175, 55, 0.08) !important;
-}
-.dark .text-brand-brown { color: #E8DCCA; }
-.dark .shadow-xl, .dark .shadow-2xl { --tw-shadow-color: rgba(0,0,0,0.3); }
-.dark input, .dark select, .dark textarea {
-  background-color: rgba(30, 26, 22, 0.6) !important;
-  color: #E8DCCA !important;
-  border-color: rgba(212, 175, 55, 0.15) !important;
-}
-.dark table thead tr { background-color: rgba(30, 26, 22, 0.8) !important; }
-.dark .bg-white         { background-color: #1e1a16 !important; }
-.dark .bg-gray-50       { background-color: #1a1714 !important; }
-.dark .bg-gray-100      { background-color: #221d18 !important; }
-.dark .text-gray-900    { color: #E8DCCA !important; }
-.dark .text-gray-700    { color: #b8aa92 !important; }
-.dark .text-gray-600    { color: #9d8f78 !important; }
-.dark .text-gray-500    { color: #807462 !important; }
-.dark .text-gray-400    { color: #6b6055 !important; }
-.dark .border-gray-100  { border-color: #2a241e !important; }
-.dark .border-gray-200  { border-color: #342c24 !important; }
-.dark .hover\:bg-gray-50:hover { background-color: #221d18 !important; }
+  --color-canvas:         #000000;
+  --color-surface:        #1C1C1E;
+  --color-surface-sunken: #1C1C1E;
+  --color-surface-raised: #2C2C2E;
+  --color-fill:           #7878805C;
 
-/* ── Base ──────────────────────────────────────── */
+  --color-label:           #FFFFFF;
+  --color-label-secondary: #EBEBF599;
+  --color-label-tertiary:  #EBEBF54D;
+
+  --color-separator: #54545899;
+  --color-border:    #54545866;
+
+  --color-accent:      #0A84FF;
+  --color-accent-dark: #409CFF;
+  --color-success:     #30D158;
+  --color-warning:     #FF9F0A;
+  --color-danger:      #FF453A;
+  --color-info:        #5E5CE6;
+
+  --color-accent-tint:  #0A84FF26;
+  --color-success-tint: #30D15826;
+  --color-warning-tint: #FF9F0A26;
+  --color-danger-tint:  #FF453A26;
+  --color-info-tint:    #5E5CE626;
+}
+
+/* ── Base ─────────────────────────────────────────── */
 body {
-  font-family: var(--font-family-heebo);
-  background-color: var(--color-brand-parchment);
-  color: var(--color-brand-dark);
+  font-family: var(--font-family-app);
+  background-color: var(--color-canvas);
+  color: var(--color-label);
   direction: rtl;
   overscroll-behavior-y: contain;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  /* iOS sets tight tracking on its display text; Heebo needs the same nudge
+     to stop Hebrew headings reading loose next to native UI. */
+  letter-spacing: -0.01em;
 }
 
-/* ── Scrollbar styling ────────────────────────────── */
+/* ── Scrollbar — thin and unobtrusive, like iOS overlay bars ──── */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--color-brand-parchment); }
-::-webkit-scrollbar-thumb { background: var(--color-brand-sand); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-gold); }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-label-tertiary); border-radius: 3px; }
 
-/* ── iOS card press effect ─────────────────────────── */
-.ios-press {
-  transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.15s ease;
+/* ── Press feedback ───────────────────────────────────
+   iOS shrinks and dims a control under the finger rather than using hover. */
+.press {
+  transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1), opacity 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
 }
-.ios-press:active { transform: scale(0.97); }
+.press:active { transform: scale(0.97); opacity: 0.85; }
 
-/* ── iOS touch target (minimum 44px) ──────────────────── */
+.press-row {
+  transition: background-color 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.press-row:active { background-color: var(--color-fill); }
+
+/* ── Touch target (Apple's 44pt minimum) ──────────────── */
 .touch-target {
   min-height: 44px;
   min-width: 44px;
@@ -124,38 +139,74 @@ body {
   justify-content: center;
 }
 
-/* ── iOS stagger fade-in for lists ────────────────────── */
-@keyframes ios-stagger {
-  from { opacity: 0; transform: translateY(12px); }
+/* ── Entrance motion ──────────────────────────────────
+   One spring curve everywhere, so the app moves like a single system. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.ios-stagger > * {
-  animation: ios-stagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-.ios-stagger > *:nth-child(1) { animation-delay: 0s; }
-.ios-stagger > *:nth-child(2) { animation-delay: 0.05s; }
-.ios-stagger > *:nth-child(3) { animation-delay: 0.1s; }
-.ios-stagger > *:nth-child(4) { animation-delay: 0.15s; }
-.ios-stagger > *:nth-child(5) { animation-delay: 0.2s; }
-.ios-stagger > *:nth-child(6) { animation-delay: 0.25s; }
-.ios-stagger > *:nth-child(7) { animation-delay: 0.3s; }
-.ios-stagger > *:nth-child(8) { animation-delay: 0.35s; }
+.stagger > * { animation: rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger > *:nth-child(2) { animation-delay: 0.06s; }
+.stagger > *:nth-child(3) { animation-delay: 0.1s; }
+.stagger > *:nth-child(4) { animation-delay: 0.14s; }
+.stagger > *:nth-child(5) { animation-delay: 0.18s; }
+.stagger > *:nth-child(6) { animation-delay: 0.22s; }
+.stagger > *:nth-child(7) { animation-delay: 0.26s; }
+.stagger > *:nth-child(8) { animation-delay: 0.3s; }
 
-@keyframes ios-fade-in {
-  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+@keyframes fade-scale {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
-.animate-ios-fade-in { animation: ios-fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-in { animation: fade-scale 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
-@keyframes gold-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+/* ── Welcome sequence ─────────────────────────────────
+   Overshoot on the mark, then a settled rise for the words — the timing
+   Apple uses when an app introduces itself. */
+@keyframes welcome-mark {
+  0%   { opacity: 0; transform: scale(0.55); }
+  55%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
 }
-.animate-gold-pulse { animation: gold-pulse 2s ease-in-out infinite; }
+@keyframes welcome-line {
+  from { opacity: 0; transform: translateY(14px); filter: blur(6px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+@keyframes welcome-ring {
+  0%   { opacity: 0.5; transform: scale(0.8); }
+  100% { opacity: 0; transform: scale(2.1); }
+}
+@keyframes welcome-exit {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(1.04); }
+}
+.welcome-mark { animation: welcome-mark 0.75s cubic-bezier(0.34, 1.4, 0.5, 1) both; }
+.welcome-ring { animation: welcome-ring 1.5s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both; }
+.welcome-line-1 { animation: welcome-line 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.32s both; }
+.welcome-line-2 { animation: welcome-line 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.46s both; }
+.welcome-line-3 { animation: welcome-line 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both; }
+.welcome-out { animation: welcome-exit 0.45s cubic-bezier(0.4, 0, 1, 1) both; }
 
+/* Motion is decoration here; the content is identical without it. */
 @media (prefers-reduced-motion: reduce) {
-  .ios-stagger > *, .animate-ios-fade-in, .animate-gold-pulse { animation: none; }
-  .ios-press, .ios-press:active { transition: none; transform: none; }
+  .stagger > *,
+  .animate-in,
+  .welcome-mark,
+  .welcome-ring,
+  .welcome-line-1,
+  .welcome-line-2,
+  .welcome-line-3,
+  .welcome-out {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .press, .press:active, .press-row, .press-row:active {
+    transition: none;
+    transform: none;
+  }
 }
 
 /* ── Hide number input spin buttons ───────────────────── */

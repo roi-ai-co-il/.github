@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import {
-  Building2, Wallet, TrendingUp, Landmark, KeyRound,
-  CalendarClock, FileText, ChevronLeft, Phone, MessageSquare,
+  Building2, Wallet, TrendingUp, Landmark,
+  FileText, ChevronLeft, Phone, MessageSquare,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ILS, heDateLong, heDate, daysUntil, waLink } from '@/lib/format';
 import { leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
-import { StatCard, SectionCard, GoldDivider, EmptyState } from '@/components/ui';
-import { SparkBar } from '@/components/SparkBar';
+import { StatCard, Group, Rows, EmptyState } from '@/components/ui';
+import { OccupancyBar } from '@/components/OccupancyBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,157 +39,148 @@ export default async function DashboardPage() {
     .filter((l) => l.days <= 90);
 
   return (
-    <div className="space-y-6 md:space-y-7">
-      {/* ── Header ──────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-brand-brown">שלום, שי 👋</h1>
-          <p className="text-xs md:text-sm text-brand-gray-light mt-1">{heDateLong(new Date())}</p>
-        </div>
-        <Link
-          href="/properties"
-          className="flex items-center gap-1.5 px-4 md:px-5 py-2.5 bg-gold hover:bg-gold-deep text-ink font-semibold text-xs md:text-sm rounded-xl transition-all duration-300 shadow-lg shadow-gold/20 hover:shadow-xl hover:shadow-gold/30 shrink-0"
-        >
-          <Building2 size={15} />
-          <span>כל הנכסים</span>
-        </Link>
+    <div className="space-y-6">
+      {/* ── Large title ─────────────────────────────────── */}
+      <div>
+        <p className="text-[13px] text-label-tertiary">{heDateLong(new Date())}</p>
+        <h1 className="text-[30px] font-bold text-label tracking-tight leading-tight mt-0.5">סקירה</h1>
       </div>
 
-      <GoldDivider />
-
-      {/* ── Contract expiry alerts ───────────────────────── */}
+      {/* ── What needs a decision, before the numbers ────── */}
       {expiring.length > 0 && (
-        <SectionCard
-          title="חוזים שדורשים טיפול"
-          icon={CalendarClock}
+        <Group
+          title="דורש טיפול"
           action={
-            <span className="text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-full px-2.5 py-1">
+            <span className="text-[13px] font-semibold text-danger bg-danger-tint rounded-full px-2.5 py-0.5">
               {expiring.length}
             </span>
           }
         >
-          <div className="divide-y divide-gold/8">
-            {/* Cap the list so the portfolio numbers stay above the fold on a
-                phone; the full list lives on /leases. */}
+          <Rows>
+            {/* Capped so the portfolio numbers stay above the fold on a phone;
+                the full list lives on /leases. */}
             {expiring.slice(0, 4).map((l) => {
-              const urgency = leaseUrgency(l.days);
-              const style = URGENCY_STYLE[urgency];
+              const style = URGENCY_STYLE[leaseUrgency(l.days)];
               return (
-                <div key={l.id} className="p-4 md:px-6 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <Link href={`/properties/${l.property?.id}`} className="font-semibold text-brand-brown hover:text-gold-deep transition-colors text-sm md:text-base block truncate">
-                      {l.property?.name} · {l.property?.city}
-                    </Link>
-                    <p className="text-xs text-brand-gray-light mt-0.5 truncate">
-                      {l.tenant?.full_name} · {ILS(l.monthly_rent)} לחודש · עד {heDate(l.end_date)}
+                <div key={l.id} className="flex items-center gap-3 px-4 py-3">
+                  <Link href={`/properties/${l.property?.id}`} className="press-row flex-1 min-w-0 -m-1 p-1 rounded-lg">
+                    <p className="font-semibold text-[15px] text-label truncate">{l.property?.name}</p>
+                    <p className="text-[13px] text-label-secondary truncate mt-0.5">
+                      {l.tenant?.full_name} · {ILS(l.monthly_rent)} · עד {heDate(l.end_date)}
                     </p>
-                  </div>
-                  <span className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border ${style.text} ${style.bg} ${style.border}`}>
+                  </Link>
+                  <span className={`shrink-0 px-2.5 py-1 rounded-full text-[12px] font-semibold ${style.text} ${style.bg}`}>
                     {style.label(l.days)}
                   </span>
-                  <div className="hidden sm:flex items-center gap-0.5 shrink-0">
-                    {l.tenant?.phone && (
-                      <>
-                        <a href={waLink(l.tenant.phone)} target="_blank" rel="noreferrer" title="וואטסאפ לשוכר"
-                          className="touch-target rounded-xl hover:bg-gold/10 text-brand-gray-light hover:text-green-600 active:scale-95 transition-all">
-                          <MessageSquare size={17} />
-                        </a>
-                        <a href={`tel:${l.tenant.phone}`} title="התקשר לשוכר"
-                          className="touch-target rounded-xl hover:bg-gold/10 text-brand-gray-light hover:text-green-700 active:scale-95 transition-all">
-                          <Phone size={17} />
-                        </a>
-                      </>
-                    )}
-                  </div>
+                  {l.tenant?.phone && (
+                    <div className="hidden sm:flex items-center shrink-0">
+                      <a href={waLink(l.tenant.phone)} target="_blank" rel="noreferrer"
+                        className="press touch-target rounded-full text-label-tertiary hover:text-success" title="וואטסאפ לשוכר">
+                        <MessageSquare size={18} strokeWidth={2} />
+                      </a>
+                      <a href={`tel:${l.tenant.phone}`}
+                        className="press touch-target rounded-full text-label-tertiary hover:text-accent" title="התקשר לשוכר">
+                        <Phone size={18} strokeWidth={2} />
+                      </a>
+                    </div>
+                  )}
                 </div>
               );
             })}
-          </div>
+          </Rows>
           {expiring.length > 4 && (
             <Link
               href="/leases"
-              className="flex items-center justify-center gap-1 py-3 text-xs font-bold text-gold hover:text-gold-deep hover:bg-gold/5 transition-colors border-t border-gold/10"
+              className="press-row flex items-center justify-center gap-1 py-3 text-[14px] font-semibold text-accent border-t border-separator"
             >
-              <span>עוד {expiring.length - 4} חוזים שדורשים טיפול</span>
-              <ChevronLeft size={14} />
+              <span>עוד {expiring.length - 4} חוזים</span>
+              <ChevronLeft size={15} strokeWidth={2.5} />
             </Link>
           )}
-        </SectionCard>
+        </Group>
       )}
 
-      {/* ── Row 1: Portfolio financials ──────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-4 ios-stagger">
-        <StatCard title="שווי התיק" value={ILS(totalValue)} icon={Landmark} iconColor="text-gold-deep" />
-        <StatCard title="הכנסה חודשית" value={ILS(monthlyIncome)} icon={Wallet} iconColor="text-green-600" />
-        <StatCard title="תשואה שנתית ברוטו" value={`${grossYield.toFixed(1)}%`} icon={TrendingUp} iconColor="text-blue-600" />
-        <StatCard title="הכנסה שנתית" value={ILS(monthlyIncome * 12)} icon={FileText} iconColor="text-violet-600" />
-      </div>
+      {/* ── Portfolio ───────────────────────────────────── */}
+      <section>
+        <h2 className="text-[15px] font-bold text-label tracking-tight px-1 mb-2">התיק</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger">
+          <StatCard title="שווי" value={ILS(totalValue)} icon={Landmark} tone="accent" />
+          <StatCard title="הכנסה חודשית" value={ILS(monthlyIncome)} icon={Wallet} tone="success" />
+          <StatCard title="תשואה ברוטו" value={`${grossYield.toFixed(1)}%`} icon={TrendingUp} tone="info" sub="שנתית" />
+          <StatCard title="הכנסה שנתית" value={ILS(monthlyIncome * 12)} icon={FileText} tone="neutral" />
+        </div>
+      </section>
 
-      {/* ── Row 2: Occupancy ───────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-4 ios-stagger">
-        <StatCard title="סה״כ נכסים" value={props.length} icon={Building2} iconColor="text-gold-deep" />
-        <StatCard title="מושכרים" value={rented} icon={KeyRound} iconColor="text-green-600" />
-        <StatCard title="פנויים" value={vacant} icon={Building2} iconColor="text-amber-600" />
-        <StatCard title="חוזים פעילים" value={activeLeases.length} icon={FileText} iconColor="text-sky-600" />
-      </div>
+      {/* ── Occupancy ───────────────────────────────────── */}
+      <section>
+        <h2 className="text-[15px] font-bold text-label tracking-tight px-1 mb-2">תפוסה</h2>
+        <div className="bg-surface rounded-2xl border border-separator p-4">
+          <div className="flex items-baseline justify-between mb-3">
+            <p className="text-[15px] text-label-secondary">
+              <span className="text-[22px] font-bold text-label tracking-tight">{props.length}</span> נכסים
+            </p>
+            <p className="text-[13px] text-label-secondary">{activeLeases.length} חוזים פעילים</p>
+          </div>
+          <OccupancyBar
+            segments={[
+              { value: rented, color: 'bg-success', label: 'מושכרים' },
+              { value: vacant, color: 'bg-warning', label: 'פנויים' },
+              { value: renovation, color: 'bg-info', label: 'בשיפוץ' },
+              { value: forSale, color: 'bg-accent', label: 'למכירה' },
+            ]}
+          />
+        </div>
+      </section>
 
-      {/* ── Occupancy breakdown ────────────────────────── */}
-      <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-5 md:p-6 shadow-xl shadow-black/[0.03]">
-        <h3 className="text-sm font-semibold text-brand-brown mb-3 tracking-tight">תמונת מצב התיק</h3>
-        <SparkBar
-          segments={[
-            { value: rented, color: 'bg-green-500', label: 'מושכרים' },
-            { value: vacant, color: 'bg-amber-400', label: 'פנויים' },
-            { value: renovation, color: 'bg-violet-500', label: 'בשיפוץ' },
-            { value: forSale, color: 'bg-sky-500', label: 'למכירה' },
-          ]}
-        />
-      </div>
-
-      {/* ── Upcoming renewals (next after the alerts) ──────── */}
-      <SectionCard
-        title="החוזים הקרובים לסיום"
-        icon={FileText}
+      {/* ── Upcoming ────────────────────────────────────── */}
+      <Group
+        title="החוזים הקרובים"
         action={
-          <Link href="/leases" className="flex items-center gap-1 text-xs font-semibold text-gold hover:text-gold-deep transition-colors">
-            <span>כל החוזים</span>
-            <ChevronLeft size={14} />
+          <Link href="/leases" className="press flex items-center gap-0.5 text-[14px] font-semibold text-accent">
+            <span>הכל</span>
+            <ChevronLeft size={15} strokeWidth={2.5} />
           </Link>
         }
       >
         {activeLeases.length === 0 ? (
           <EmptyState icon={FileText} text="אין חוזים פעילים עדיין" />
         ) : (
-          <div className="divide-y divide-gold/8">
+          <Rows>
             {activeLeases.slice(0, 6).map((l) => {
               const days = daysUntil(l.end_date);
-              const urgency = leaseUrgency(days);
-              const style = URGENCY_STYLE[urgency];
+              const style = URGENCY_STYLE[leaseUrgency(days)];
               return (
                 <Link
                   key={l.id}
                   href={`/properties/${l.property?.id}`}
-                  className="p-4 md:px-6 flex items-center gap-3 hover:bg-gold/5 transition-colors group"
+                  className="press-row flex items-center gap-3 px-4 py-3"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-brand-brown text-sm truncate group-hover:text-gold-deep transition-colors">
-                      {l.property?.name}
-                    </div>
-                    <div className="text-xs text-brand-gray-light mt-0.5 truncate">
-                      {l.tenant?.full_name} · {ILS(l.monthly_rent)} לחודש
-                    </div>
+                    <p className="font-semibold text-[15px] text-label truncate">{l.property?.name}</p>
+                    <p className="text-[13px] text-label-secondary truncate mt-0.5">
+                      {l.tenant?.full_name} · {ILS(l.monthly_rent)}
+                    </p>
                   </div>
                   <div className="text-left shrink-0">
-                    <div className={`text-xs font-bold ${style.text}`}>{heDate(l.end_date)}</div>
-                    <div className="text-[10px] text-brand-gray-light mt-0.5">{style.label(days)}</div>
+                    <p className="text-[13px] font-semibold text-label">{heDate(l.end_date)}</p>
+                    <p className={`text-[12px] mt-0.5 ${style.text}`}>{style.label(days)}</p>
                   </div>
-                  <ChevronLeft size={16} className="text-brand-sand shrink-0 group-hover:text-gold transition-colors" />
+                  <ChevronLeft size={17} className="text-label-tertiary shrink-0" strokeWidth={2.5} />
                 </Link>
               );
             })}
-          </div>
+          </Rows>
         )}
-      </SectionCard>
+      </Group>
+
+      {/* ── Quick action ────────────────────────────────── */}
+      <Link
+        href="/properties"
+        className="press flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl bg-surface-sunken text-accent font-semibold text-[15px]"
+      >
+        <Building2 size={17} strokeWidth={2.2} />
+        <span>כל הנכסים</span>
+      </Link>
     </div>
   );
 }

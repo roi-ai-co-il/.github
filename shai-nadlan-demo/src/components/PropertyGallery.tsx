@@ -86,46 +86,46 @@ export default function PropertyGallery({ propertyId, propertyName, images, cove
   };
 
   return (
-    <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 overflow-hidden shadow-xl shadow-black/[0.03]">
+    <div className="bg-surface rounded-2xl border border-separator overflow-hidden">
       {/* Main image */}
-      <div className="relative h-56 md:h-80 bg-brand-beige/50">
+      <div className="relative aspect-[16/9] md:aspect-[21/9] bg-surface-sunken">
         {current ? (
           <Image
             src={current.url}
             alt={propertyName}
             fill
             priority
-            sizes="(max-width: 1024px) 100vw, 66vw"
+            sizes="(max-width: 1024px) 100vw, 60vw"
             className="object-cover"
           />
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-brand-sand">
-            <Building2 size={48} strokeWidth={1.2} />
-            <span className="text-xs text-brand-gray-light">אין תמונות עדיין — הוסף תמונה ראשונה</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-label-tertiary">
+            <Building2 size={42} strokeWidth={1.5} />
+            <span className="text-[13px]">אין תמונות עדיין — הוסף תמונה ראשונה</span>
           </div>
         )}
       </div>
 
       {/* Thumbnails + upload */}
-      <div className="p-3 md:p-4 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+      <div className="p-3 flex items-center gap-2 overflow-x-auto scrollbar-hide border-t border-separator">
         {gallery.map((img, i) => (
           <div key={img.id} className="relative shrink-0 group">
             <button
               onClick={() => setSelected(i)}
-              className={`relative w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
-                i === selected ? 'border-gold shadow-lg shadow-gold/20' : 'border-transparent opacity-70 hover:opacity-100'
+              className={`press relative w-[58px] h-[58px] rounded-xl overflow-hidden ${
+                i === selected ? 'ring-2 ring-accent' : 'opacity-60'
               }`}
               aria-label={`תמונה ${i + 1}`}
             >
-              <Image src={img.url} alt="" fill sizes="64px" className="object-cover" />
+              <Image src={img.url} alt="" fill sizes="58px" className="object-cover" />
             </button>
             {img.id !== 'cover' && (
               <button
                 onClick={() => removeImage(img)}
-                className="absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full bg-white shadow-md border border-gray-200 hidden group-hover:flex items-center justify-center text-red-500 hover:bg-red-50 transition-colors"
+                className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-danger text-white hidden group-hover:flex items-center justify-center shadow"
                 title="מחק תמונה"
               >
-                <Trash2 size={11} />
+                <Trash2 size={10} strokeWidth={2.5} />
               </button>
             )}
           </div>
@@ -134,12 +134,12 @@ export default function PropertyGallery({ propertyId, propertyName, images, cove
         <button
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="shrink-0 w-16 h-16 rounded-xl border-2 border-dashed border-brand-sand/60 hover:border-gold hover:bg-gold/5 flex flex-col items-center justify-center gap-0.5 text-brand-gray-light hover:text-gold-deep transition-all disabled:opacity-50"
+          className="press shrink-0 w-[58px] h-[58px] rounded-xl bg-surface-sunken flex flex-col items-center justify-center gap-0.5 text-accent disabled:opacity-50"
           title="הוסף תמונות"
           aria-label="הוסף תמונות"
         >
           {uploading ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
-          <span className="text-[9px] font-semibold">{uploading ? 'מעלה…' : 'הוסף'}</span>
+          <span className="text-[9px] font-medium">{uploading ? 'מעלה…' : 'הוסף'}</span>
         </button>
         <input
           ref={inputRef}
@@ -152,7 +152,7 @@ export default function PropertyGallery({ propertyId, propertyName, images, cove
       </div>
 
       {error && (
-        <p role="alert" className="mx-4 mb-3 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5">
+        <p role="alert" className="mx-3 mb-3 text-[13px] font-medium text-danger bg-danger-tint rounded-xl px-3.5 py-2.5">
           {error}
         </p>
       )}

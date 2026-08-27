@@ -2,12 +2,12 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   ChevronRight, MapPin, BedDouble, Ruler, Layers, Wallet,
-  TrendingUp, CalendarDays, FileText, Phone, MessageSquare, StickyNote, User,
+  TrendingUp, CalendarDays, FileText, Phone, MessageSquare, StickyNote, User, Home,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ILS, heDate, daysUntil, waLink } from '@/lib/format';
 import { PROPERTY_TYPES, leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
-import { StatusBadge, SectionCard, EmptyState } from '@/components/ui';
+import { StatusBadge, Group, Rows, EmptyState, IconChip } from '@/components/ui';
 import PropertyGallery from '@/components/PropertyGallery';
 
 export const dynamic = 'force-dynamic';
@@ -40,7 +40,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
       : null;
 
   const facts = [
-    { icon: Layers, label: 'סוג נכס', value: PROPERTY_TYPES[property.property_type] ?? property.property_type },
+    { icon: Home, label: 'סוג נכס', value: PROPERTY_TYPES[property.property_type] ?? property.property_type },
     { icon: BedDouble, label: 'חדרים', value: property.rooms != null ? `${property.rooms}` : null },
     { icon: Ruler, label: 'שטח', value: property.area_sqm != null ? `${property.area_sqm} מ״ר` : null },
     { icon: Layers, label: 'קומה', value: property.floor_no != null ? `${property.floor_no}` : null },
@@ -51,18 +51,18 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   ].filter((f) => f.value != null);
 
   return (
-    <div className="space-y-5 md:space-y-6">
-      {/* ── Breadcrumb + header ────────────────────────── */}
+    <div className="space-y-5">
+      {/* ── Back + title ────────────────────────────────── */}
       <div>
-        <Link href="/properties" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-gray-light hover:text-gold-deep transition-colors">
-          <ChevronRight size={14} />
-          <span>חזרה לנכסים</span>
+        <Link href="/properties" className="press inline-flex items-center gap-0.5 text-[15px] font-medium text-accent -mr-1">
+          <ChevronRight size={18} strokeWidth={2.5} />
+          <span>נכסים</span>
         </Link>
         <div className="flex items-start justify-between gap-3 mt-2">
           <div className="min-w-0">
-            <h1 className="text-xl md:text-2xl font-bold text-brand-brown">{property.name}</h1>
-            <p className="text-xs md:text-sm text-brand-gray-light mt-1 flex items-center gap-1">
-              <MapPin size={13} />
+            <h1 className="text-[26px] font-bold text-label tracking-tight leading-tight">{property.name}</h1>
+            <p className="text-[14px] text-label-secondary mt-1 flex items-center gap-1">
+              <MapPin size={14} strokeWidth={2} />
               {property.address}, {property.city}
             </p>
           </div>
@@ -72,7 +72,6 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* ── Gallery + uploader ─────────────────────────── */}
       <PropertyGallery
         propertyId={property.id}
         propertyName={property.name}
@@ -80,58 +79,62 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         coverUrl={property.cover_image_url}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 items-start">
-        {/* ── Facts ───────────────────────────────── */}
-        <div className="lg:col-span-2 bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-5 md:p-6 shadow-xl shadow-black/[0.03]">
-          <h2 className="text-base font-bold text-brand-brown mb-4">פרטי הנכס</h2>
-          <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-5">
-            {facts.map((f) => (
-              <div key={f.label}>
-                <dt className="text-[11px] text-brand-gray-light flex items-center gap-1">
-                  <f.icon size={12} className="text-gold" />
-                  {f.label}
-                </dt>
-                <dd className="text-sm font-bold text-brand-brown mt-1 whitespace-nowrap">{f.value}</dd>
-              </div>
-            ))}
-          </dl>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-start">
+        {/* ── Facts ───────────────────────────────────── */}
+        <div className="lg:col-span-3 space-y-5">
+          <Group title="פרטי הנכס">
+            <dl className="grid grid-cols-2 sm:grid-cols-4">
+              {facts.map((f) => (
+                <div key={f.label} className="p-3.5 border-b border-l border-separator last:border-l-0">
+                  <dt className="text-[12px] text-label-tertiary flex items-center gap-1.5">
+                    <f.icon size={13} strokeWidth={2} />
+                    {f.label}
+                  </dt>
+                  <dd className="text-[16px] font-semibold text-label mt-1 whitespace-nowrap">{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </Group>
+
           {property.notes && (
-            <div className="mt-5 pt-4 border-t border-gold/10 flex items-start gap-2">
-              <StickyNote size={15} className="text-gold shrink-0 mt-0.5" />
-              <p className="text-sm text-brand-gray leading-relaxed">{property.notes}</p>
-            </div>
+            <Group title="הערות">
+              <div className="p-4 flex items-start gap-2.5">
+                <StickyNote size={16} className="text-warning shrink-0 mt-0.5" strokeWidth={2} />
+                <p className="text-[15px] text-label-secondary leading-relaxed">{property.notes}</p>
+              </div>
+            </Group>
           )}
         </div>
 
-        {/* ── Active lease ───────────────────────────── */}
-        <div className="lg:col-span-1">
+        {/* ── Active lease ────────────────────────────── */}
+        <div className="lg:col-span-2">
           {activeLease ? (
             <LeasePanel lease={activeLease} />
           ) : (
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 shadow-xl shadow-black/[0.03]">
-              <EmptyState icon={FileText} text="אין חוזה שכירות פעיל בנכס זה" />
-            </div>
+            <Group title="חוזה שכירות">
+              <EmptyState icon={FileText} text="אין חוזה פעיל בנכס זה" />
+            </Group>
           )}
         </div>
       </div>
 
-      {/* ── Lease history ─────────────────────────────── */}
+      {/* ── Lease history ───────────────────────────────── */}
       {(leases ?? []).length > 1 && (
-        <SectionCard title="היסטוריית חוזים" icon={FileText}>
-          <div className="divide-y divide-gold/8">
+        <Group title="היסטוריית חוזים">
+          <Rows>
             {(leases ?? []).map((l) => (
-              <div key={l.id} className="p-4 md:px-6 flex items-center justify-between gap-3 text-sm">
+              <div key={l.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
-                  <span className="font-semibold text-brand-brown">{l.tenant?.full_name}</span>
-                  <span className="text-xs text-brand-gray-light mr-2">
+                  <p className="text-[15px] font-medium text-label truncate">{l.tenant?.full_name}</p>
+                  <p className="text-[13px] text-label-tertiary mt-0.5">
                     {heDate(l.start_date)} — {heDate(l.end_date)}
-                  </span>
+                  </p>
                 </div>
-                <span className="font-bold text-gold-deep whitespace-nowrap">{ILS(l.monthly_rent)}</span>
+                <span className="text-[15px] font-semibold text-label whitespace-nowrap">{ILS(l.monthly_rent)}</span>
               </div>
             ))}
-          </div>
-        </SectionCard>
+          </Rows>
+        </Group>
       )}
     </div>
   );
@@ -153,88 +156,78 @@ function LeasePanel({ lease }: {
   const progress = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 100;
 
   return (
-    <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 overflow-hidden shadow-xl shadow-black/[0.03]">
-      <div className="px-5 py-4 border-b border-gold/10 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <FileText size={17} className="text-gold" />
-          <h2 className="text-base font-bold text-brand-brown">חוזה שכירות</h2>
-        </div>
-        <span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${style.text} ${style.bg} ${style.border}`}>
+    <Group
+      title="חוזה שכירות"
+      action={
+        <span className={`px-2.5 py-1 rounded-full text-[12px] font-semibold ${style.text} ${style.bg}`}>
           {style.label(days)}
         </span>
-      </div>
-
-      <div className="p-5 space-y-4">
-        {/* Tenant */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gold/10 border border-gold/15 flex items-center justify-center shrink-0">
-            <User size={17} className="text-gold-deep" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-bold text-brand-brown text-sm truncate">{lease.tenant?.full_name}</p>
-            {lease.tenant?.phone && (
-              <p className="text-xs text-brand-gray-light whitespace-nowrap" dir="ltr">{lease.tenant.phone}</p>
-            )}
-          </div>
+      }
+    >
+      {/* Tenant row — the thing you reach for first */}
+      <div className="flex items-center gap-3 px-4 py-3.5 border-b border-separator">
+        <IconChip icon={User} tone="accent" />
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-[15px] text-label truncate">{lease.tenant?.full_name}</p>
           {lease.tenant?.phone && (
-            <div className="flex items-center gap-0.5 shrink-0">
-              <a href={waLink(lease.tenant.phone)} target="_blank" rel="noreferrer" title="וואטסאפ"
-                className="touch-target rounded-xl hover:bg-gold/10 text-brand-gray-light hover:text-green-600 active:scale-95 transition-all">
-                <MessageSquare size={18} />
-              </a>
-              <a href={`tel:${lease.tenant.phone}`} title="התקשר"
-                className="touch-target rounded-xl hover:bg-gold/10 text-brand-gray-light hover:text-green-700 active:scale-95 transition-all">
-                <Phone size={18} />
-              </a>
-            </div>
+            <p className="text-[13px] text-label-tertiary whitespace-nowrap" dir="ltr">{lease.tenant.phone}</p>
           )}
         </div>
-
-        {/* Term progress */}
-        <div>
-          <div className="flex items-center justify-between text-[11px] text-brand-gray-light mb-1.5">
-            <span>{heDate(lease.start_date)}</span>
-            <span>{heDate(lease.end_date)}</span>
-          </div>
-          <div className="h-2 rounded-full bg-brand-beige/50 overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${urgency === 'ok' ? 'bg-green-500' : urgency === 'soon' ? 'bg-amber-400' : 'bg-red-500'}`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Numbers */}
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-4 pt-1">
-          <div>
-            <dt className="text-[11px] text-brand-gray-light">שכר דירה</dt>
-            <dd className="text-base font-bold text-gold-deep whitespace-nowrap mt-0.5">
-              {ILS(lease.monthly_rent)}<span className="text-[10px] font-medium text-brand-gray-light"> / חודש</span>
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[11px] text-brand-gray-light">יום תשלום</dt>
-            <dd className="text-sm font-bold text-brand-brown mt-0.5">{lease.payment_day} בחודש</dd>
-          </div>
-          {lease.deposit != null && (
-            <div>
-              <dt className="text-[11px] text-brand-gray-light">פיקדון</dt>
-              <dd className="text-sm font-bold text-brand-brown whitespace-nowrap mt-0.5">{ILS(lease.deposit)}</dd>
-            </div>
-          )}
-          <div>
-            <dt className="text-[11px] text-brand-gray-light">הצמדה למדד</dt>
-            <dd className="text-sm font-bold text-brand-brown mt-0.5">{lease.linked_to_cpi ? 'כן' : 'לא'}</dd>
-          </div>
-        </dl>
-
-        {lease.notes && (
-          <div className="pt-3 border-t border-gold/10 flex items-start gap-2">
-            <StickyNote size={14} className="text-gold shrink-0 mt-0.5" />
-            <p className="text-xs text-brand-gray leading-relaxed">{lease.notes}</p>
+        {lease.tenant?.phone && (
+          <div className="flex items-center shrink-0">
+            <a href={waLink(lease.tenant.phone)} target="_blank" rel="noreferrer"
+              className="press touch-target rounded-full text-label-tertiary hover:text-success" title="וואטסאפ">
+              <MessageSquare size={19} strokeWidth={2} />
+            </a>
+            <a href={`tel:${lease.tenant.phone}`}
+              className="press touch-target rounded-full text-label-tertiary hover:text-accent" title="התקשר">
+              <Phone size={19} strokeWidth={2} />
+            </a>
           </div>
         )}
       </div>
-    </div>
+
+      {/* Term progress against today */}
+      <div className="px-4 py-3.5 border-b border-separator">
+        <div className="flex items-center justify-between text-[12px] text-label-tertiary mb-1.5">
+          <span>{heDate(lease.start_date)}</span>
+          <span>{heDate(lease.end_date)}</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-fill overflow-hidden">
+          <div className={`h-full rounded-full ${style.bar}`} style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+
+      {/* Terms */}
+      <dl className="grid grid-cols-2">
+        <div className="p-3.5 border-l border-b border-separator">
+          <dt className="text-[12px] text-label-tertiary">שכר דירה</dt>
+          <dd className="text-[18px] font-bold text-label whitespace-nowrap mt-0.5 tracking-tight">
+            {ILS(lease.monthly_rent)}
+          </dd>
+        </div>
+        <div className="p-3.5 border-b border-separator">
+          <dt className="text-[12px] text-label-tertiary">יום תשלום</dt>
+          <dd className="text-[18px] font-bold text-label mt-0.5 tracking-tight">{lease.payment_day} בחודש</dd>
+        </div>
+        <div className="p-3.5 border-l border-separator">
+          <dt className="text-[12px] text-label-tertiary">פיקדון</dt>
+          <dd className="text-[16px] font-semibold text-label whitespace-nowrap mt-0.5">
+            {lease.deposit != null ? ILS(lease.deposit) : '—'}
+          </dd>
+        </div>
+        <div className="p-3.5">
+          <dt className="text-[12px] text-label-tertiary">הצמדה למדד</dt>
+          <dd className="text-[16px] font-semibold text-label mt-0.5">{lease.linked_to_cpi ? 'כן' : 'לא'}</dd>
+        </div>
+      </dl>
+
+      {lease.notes && (
+        <div className="px-4 py-3.5 border-t border-separator flex items-start gap-2.5">
+          <StickyNote size={15} className="text-warning shrink-0 mt-0.5" strokeWidth={2} />
+          <p className="text-[14px] text-label-secondary leading-relaxed">{lease.notes}</p>
+        </div>
+      )}
+    </Group>
   );
 }

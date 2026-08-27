@@ -8,8 +8,8 @@ import { createClient } from '@/lib/supabase/client';
 import { PROPERTY_TYPES, PROPERTY_STATUS } from '@/lib/domain';
 
 const inputCls =
-  'w-full bg-white/70 border border-white/40 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/30 transition-all shadow-sm placeholder:text-brand-gray-light/60';
-const labelCls = 'block text-xs font-semibold text-brand-gray mb-1.5';
+  'w-full bg-surface-sunken rounded-xl px-4 py-3 text-[16px] text-label placeholder:text-label-tertiary outline-none focus:ring-2 focus:ring-accent/30';
+const labelCls = 'block text-[13px] font-medium text-label-secondary mb-1.5 mr-1';
 
 export default function NewPropertyPage() {
   const router = useRouter();
@@ -84,31 +84,31 @@ export default function NewPropertyPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       <div>
-        <Link href="/properties" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-gray-light hover:text-gold-deep transition-colors">
-          <ChevronRight size={14} />
-          <span>חזרה לנכסים</span>
+        <Link href="/properties" className="press inline-flex items-center gap-0.5 text-[15px] font-medium text-accent -mr-1">
+          <ChevronRight size={18} strokeWidth={2.5} />
+          <span>נכסים</span>
         </Link>
-        <h1 className="text-xl md:text-2xl font-bold text-brand-brown mt-2">נכס חדש</h1>
-        <p className="text-xs md:text-sm text-brand-gray-light mt-1">אחרי השמירה אפשר להוסיף תמונות בעמוד הנכס</p>
+        <h1 className="text-[30px] font-bold text-label tracking-tight leading-tight mt-2">נכס חדש</h1>
+        <p className="text-[13px] text-label-tertiary mt-1">אחרי השמירה אפשר להוסיף תמונות בעמוד הנכס</p>
       </div>
 
-      <form onSubmit={submit} className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/20 p-5 md:p-7 shadow-xl shadow-black/[0.03] space-y-4 animate-ios-fade-in">
+      <form onSubmit={submit} className="bg-surface rounded-2xl border border-separator p-4 md:p-5 space-y-4 animate-in">
         <div>
           <label htmlFor="name" className={labelCls}>שם הנכס *</label>
           <input id="name" className={inputCls} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="למשל: דירת 4 חד׳ ברוטשילד" />
-          {fieldErrors.name && <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.name}</p>}
+          {fieldErrors.name && <p className="text-[13px] text-danger font-medium mt-1.5 mr-1">{fieldErrors.name}</p>}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label htmlFor="address" className={labelCls}>כתובת *</label>
             <input id="address" className={inputCls} value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="רחוב ומספר" />
-            {fieldErrors.address && <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.address}</p>}
+            {fieldErrors.address && <p className="text-[13px] text-danger font-medium mt-1.5 mr-1">{fieldErrors.address}</p>}
           </div>
           <div>
             <label htmlFor="city" className={labelCls}>עיר *</label>
             <input id="city" className={inputCls} value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="תל אביב" />
-            {fieldErrors.city && <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.city}</p>}
+            {fieldErrors.city && <p className="text-[13px] text-danger font-medium mt-1.5 mr-1">{fieldErrors.city}</p>}
           </div>
         </div>
 
@@ -135,17 +135,17 @@ export default function NewPropertyPage() {
           <div>
             <label htmlFor="rooms" className={labelCls}>חדרים</label>
             <input id="rooms" inputMode="decimal" className={inputCls} value={form.rooms} onChange={(e) => set('rooms', e.target.value)} placeholder="4" />
-            {fieldErrors.rooms && <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.rooms}</p>}
+            {fieldErrors.rooms && <p className="text-[13px] text-danger font-medium mt-1.5 mr-1">{fieldErrors.rooms}</p>}
           </div>
           <div>
             <label htmlFor="area_sqm" className={labelCls}>שטח (מ״ר)</label>
             <input id="area_sqm" inputMode="decimal" className={inputCls} value={form.area_sqm} onChange={(e) => set('area_sqm', e.target.value)} placeholder="100" />
-            {fieldErrors.area_sqm && <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.area_sqm}</p>}
+            {fieldErrors.area_sqm && <p className="text-[13px] text-danger font-medium mt-1.5 mr-1">{fieldErrors.area_sqm}</p>}
           </div>
           <div>
             <label htmlFor="floor_no" className={labelCls}>קומה</label>
             <input id="floor_no" inputMode="numeric" className={inputCls} value={form.floor_no} onChange={(e) => set('floor_no', e.target.value)} placeholder="3" />
-            {fieldErrors.floor_no && <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.floor_no}</p>}
+            {fieldErrors.floor_no && <p className="text-[13px] text-danger font-medium mt-1.5 mr-1">{fieldErrors.floor_no}</p>}
           </div>
         </div>
 
@@ -153,7 +153,7 @@ export default function NewPropertyPage() {
           <div>
             <label htmlFor="purchase_price" className={labelCls}>מחיר רכישה (₪)</label>
             <input id="purchase_price" inputMode="numeric" className={inputCls} value={form.purchase_price} onChange={(e) => set('purchase_price', e.target.value)} placeholder="2,000,000" />
-            {fieldErrors.purchase_price && <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.purchase_price}</p>}
+            {fieldErrors.purchase_price && <p className="text-[13px] text-danger font-medium mt-1.5 mr-1">{fieldErrors.purchase_price}</p>}
           </div>
           <div>
             <label htmlFor="purchase_date" className={labelCls}>תאריך רכישה</label>
@@ -162,7 +162,7 @@ export default function NewPropertyPage() {
           <div>
             <label htmlFor="current_value" className={labelCls}>שווי נוכחי (₪)</label>
             <input id="current_value" inputMode="numeric" className={inputCls} value={form.current_value} onChange={(e) => set('current_value', e.target.value)} placeholder="2,500,000" />
-            {fieldErrors.current_value && <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.current_value}</p>}
+            {fieldErrors.current_value && <p className="text-[13px] text-danger font-medium mt-1.5 mr-1">{fieldErrors.current_value}</p>}
           </div>
         </div>
 
@@ -172,7 +172,7 @@ export default function NewPropertyPage() {
         </div>
 
         {error && (
-          <p role="alert" className="text-sm font-bold text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <p role="alert" className="text-[14px] font-medium text-danger bg-danger-tint rounded-xl px-4 py-3">
             {error}
           </p>
         )}
@@ -181,12 +181,12 @@ export default function NewPropertyPage() {
           <button
             type="submit"
             disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-brand-dark text-on-brand-dark text-sm font-bold rounded-2xl disabled:opacity-40 transition-all duration-200 hover:shadow-lg touch-target"
+            className="press touch-target flex-1 flex items-center justify-center gap-2 py-3.5 bg-accent text-white text-[16px] font-semibold rounded-xl disabled:opacity-40"
           >
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saving ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} strokeWidth={2.2} />}
             <span>{saving ? 'שומר…' : 'שמור נכס'}</span>
           </button>
-          <Link href="/properties" className="px-5 py-3.5 text-sm text-brand-gray-light font-medium rounded-2xl hover:bg-brand-beige/20 transition-colors touch-target">
+          <Link href="/properties" className="press touch-target px-5 py-3.5 text-[16px] text-label-secondary font-medium rounded-xl bg-surface-sunken">
             ביטול
           </Link>
         </div>

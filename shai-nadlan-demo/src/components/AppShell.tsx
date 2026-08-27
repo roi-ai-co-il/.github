@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Building2, FileText, LogOut, Moon, Sun, Plus } from 'lucide-react';
+import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import WelcomeOverlay from '@/components/WelcomeOverlay';
 
 const NAV_ITEMS = [
-  { href: '/', label: 'בית', icon: LayoutDashboard },
+  { href: '/', label: 'בית', icon: LayoutGrid },
   { href: '/properties', label: 'נכסים', icon: Building2 },
   { href: '/leases', label: 'חוזים', icon: FileText },
 ];
@@ -35,16 +36,20 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="p-2 rounded-xl text-ink-muted/40 hover:text-gold hover:bg-gold/[0.08] transition-all duration-200 relative after:absolute after:-inset-1.5 after:content-['']"
+      className="press touch-target rounded-full text-label-secondary hover:text-label"
       title={dark ? 'מצב בהיר' : 'מצב כהה'}
       aria-label={dark ? 'מצב בהיר' : 'מצב כהה'}
     >
-      {dark ? <Sun size={15} strokeWidth={1.5} /> : <Moon size={15} strokeWidth={1.5} />}
+      {dark ? <Sun size={19} strokeWidth={2} /> : <Moon size={19} strokeWidth={2} />}
     </button>
   );
 }
 
-export default function AppShell({ children, email }: { children: React.ReactNode; email: string }) {
+export default function AppShell({ children, email, firstName }: {
+  children: React.ReactNode;
+  email: string;
+  firstName: string;
+}) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -62,107 +67,91 @@ export default function AppShell({ children, email }: { children: React.ReactNod
   };
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-brand-parchment">
-      {/* ── Header (ink plaque) ─────────────────────────── */}
-      <header className="bg-ink/90 backdrop-blur-2xl text-white shrink-0 z-50 shadow-2xl shadow-black/[0.06] safe-top">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 md:px-8 h-[56px] md:h-[68px]">
-          {/* Brand */}
-          <Link href="/" className="flex items-center gap-2.5 md:gap-3.5">
-            <div className="w-9 h-9 md:w-10 md:h-10 rounded-2xl bg-white/10 backdrop-blur-xl border border-gold/20 flex items-center justify-center">
-              <Building2 size={18} className="text-gold" strokeWidth={1.5} />
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-canvas">
+      <WelcomeOverlay firstName={firstName} />
+
+      {/* ── Navigation bar — translucent over the scrolling content ──── */}
+      <header className="shrink-0 z-40 bg-canvas/80 backdrop-blur-xl border-b border-separator safe-top">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3 px-4 md:px-6 h-[52px] md:h-[60px]">
+          <Link href="/" className="press flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-[10px] bg-accent flex items-center justify-center">
+              <Building2 size={17} className="text-white" strokeWidth={2.2} />
             </div>
-            <div className="leading-tight">
-              <span className="text-ink-muted font-semibold text-sm md:text-base tracking-tight block">שי עובדיה</span>
-              <span className="text-brand-gray-light text-[10px] tracking-widest font-medium hidden sm:block">ניהול תיק נדל״ן</span>
-            </div>
+            <span className="font-bold text-[17px] text-label tracking-tight">שי עובדיה</span>
           </Link>
 
-          {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
             {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                className={`press flex items-center gap-2 px-3.5 py-2 rounded-xl text-[15px] font-medium ${
                   isActive(pathname, href)
-                    ? 'bg-gold/12 text-gold'
-                    : 'text-ink-muted/50 hover:text-ink-muted hover:bg-white/[0.06]'
+                    ? 'bg-accent-tint text-accent'
+                    : 'text-label-secondary hover:bg-fill'
                 }`}
               >
-                <Icon size={16} strokeWidth={1.5} />
+                <Icon size={17} strokeWidth={2} />
                 <span>{label}</span>
               </Link>
             ))}
           </nav>
 
-          {/* Actions */}
-          <div className="flex items-center gap-1.5 md:gap-3">
+          <div className="flex items-center gap-1 md:gap-2">
             <Link
               href="/properties/new"
-              className="hidden md:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gold hover:bg-gold-deep text-ink text-xs font-bold transition-all duration-200 shadow-lg shadow-gold/20"
+              className="press hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-accent text-white text-[14px] font-semibold"
             >
-              <Plus size={14} />
+              <Plus size={15} strokeWidth={2.5} />
               <span>נכס חדש</span>
             </Link>
             <ThemeToggle />
-            <span className="text-xs text-ink-muted/40 hidden lg:inline font-medium" dir="ltr">{email}</span>
+            <span className="text-[13px] text-label-tertiary hidden lg:inline" dir="ltr">{email}</span>
             <button
               onClick={signOut}
-              className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 rounded-xl text-xs text-ink-muted/40 hover:text-red-400 hover:bg-white/[0.06] transition-all duration-200 font-medium relative after:absolute after:-inset-1.5 after:content-['']"
+              className="press touch-target rounded-full text-label-secondary hover:text-danger"
               title="יציאה"
+              aria-label="יציאה"
             >
-              <LogOut size={14} strokeWidth={1.5} />
-              <span className="hidden md:inline">יציאה</span>
+              <LogOut size={18} strokeWidth={2} />
             </button>
           </div>
         </div>
-        <div className="h-px bg-gradient-to-l from-transparent via-gold/30 to-transparent" />
       </header>
 
       {/* ── Main — the app's single scroll container ───────── */}
-      <main id="app-scroll" className="flex-1 min-h-0 overflow-y-auto overscroll-contain w-full px-4 py-5 md:px-8 md:py-8">
-        <div className="max-w-6xl w-full mx-auto">{children}</div>
+      <main id="app-scroll" className="flex-1 min-h-0 overflow-y-auto overscroll-contain w-full px-4 py-5 md:px-6 md:py-7">
+        <div className="max-w-5xl w-full mx-auto">{children}</div>
       </main>
 
-      {/* ── Mobile bottom nav (flex child, never fixed) ──────── */}
-      <nav className="md:hidden shrink-0 z-50 bg-white dark:bg-ink border-t border-brand-sand/20 safe-bottom">
-        <div className="flex items-center justify-around h-[68px] px-1">
+      {/* ── Tab bar (flex child, never fixed — it cannot drift on iOS) ──── */}
+      <nav className="md:hidden shrink-0 z-40 bg-canvas/85 backdrop-blur-xl border-t border-separator safe-bottom">
+        <div className="flex items-stretch justify-around h-[56px]">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href);
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex flex-col items-center justify-center gap-0.5 min-w-[52px] min-h-[48px] px-2 py-1 rounded-xl transition-all duration-200 ${
-                  active ? 'text-gold' : 'text-brand-gray-light'
+                aria-current={active ? 'page' : undefined}
+                className={`press flex flex-col items-center justify-center gap-1 flex-1 min-w-[56px] ${
+                  active ? 'text-accent' : 'text-label-tertiary'
                 }`}
               >
-                <div className={`p-1.5 rounded-xl transition-all duration-200 ${active ? 'bg-gold/12' : ''}`}>
-                  <Icon size={20} strokeWidth={active ? 2 : 1.5} />
-                </div>
-                <span className="text-[10px] font-medium">{label}</span>
+                <Icon size={23} strokeWidth={active ? 2.4 : 1.9} />
+                <span className="text-[10px] font-medium tracking-tight">{label}</span>
               </Link>
             );
           })}
           <Link
             href="/properties/new"
-            className="flex flex-col items-center justify-center gap-0.5 min-w-[52px] min-h-[48px] px-2 py-1 rounded-xl text-brand-gray-light"
+            className="press flex flex-col items-center justify-center gap-1 flex-1 min-w-[56px] text-label-tertiary"
           >
-            <div className="p-1.5 rounded-xl bg-gold text-ink shadow-lg shadow-gold/25">
-              <Plus size={20} strokeWidth={2} />
-            </div>
-            <span className="text-[10px] font-medium">הוספה</span>
+            <Plus size={23} strokeWidth={2.2} />
+            <span className="text-[10px] font-medium tracking-tight">הוספה</span>
           </Link>
         </div>
       </nav>
-
-      {/* ── Footer (desktop only) ───────────────────────── */}
-      <footer className="hidden md:block text-center py-5 text-xs text-brand-gray-light/50 font-medium shrink-0">
-        <span>© {new Date().getFullYear()} שי עובדיה · ניהול נדל״ן — פותח על ידי </span>
-        <a href="https://roiai.co.il" target="_blank" rel="noopener noreferrer" className="text-gold/70 hover:text-gold transition-colors">
-          ROI AI
-        </a>
-      </footer>
     </div>
   );
 }
