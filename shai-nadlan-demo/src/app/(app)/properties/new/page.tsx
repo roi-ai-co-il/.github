@@ -138,7 +138,7 @@ export default function NewPropertyPage() {
             {fieldErrors.rooms && <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.rooms}</p>}
           </div>
           <div>
-            <label htmlFor="area_sqm" className={labelCls}>שטח (מ”ר)</label>
+            <label htmlFor="area_sqm" className={labelCls}>שטח (מ״ר)</label>
             <input id="area_sqm" inputMode="decimal" className={inputCls} value={form.area_sqm} onChange={(e) => set('area_sqm', e.target.value)} placeholder="100" />
             {fieldErrors.area_sqm && <p className="text-xs text-red-600 font-semibold mt-1">{fieldErrors.area_sqm}</p>}
           </div>
