@@ -147,7 +147,7 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
                       <span className="flex items-center gap-1"><BedDouble size={13} />{p.rooms} חד׳</span>
                     )}
                     {p.area_sqm != null && (
-                      <span className="flex items-center gap-1"><Ruler size={13} />{p.area_sqm} מ”ר</span>
+                      <span className="flex items-center gap-1"><Ruler size={13} />{p.area_sqm} מ״ר</span>
                     )}
                   </div>
 
