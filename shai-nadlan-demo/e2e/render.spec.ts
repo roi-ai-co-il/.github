@@ -130,6 +130,77 @@ test('new property form validates required fields', async ({ page }) => {
   await expect(page.getByText('עיר חובה')).toBeVisible();
 });
 
+test('the large title collapses into the nav bar on scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/leases');
+
+  // At rest the bar carries no title: the page's own large title is doing
+  // that job, and iOS leaves the bar bare until the content slides under it.
+  const barTitle = page.locator('header .title-swap');
+  await expect(barTitle).toHaveText('חוזים');
+  await expect(barTitle).toHaveCSS('opacity', '0');
+
+  // Wait for the list before scrolling: an empty scroller silently ignores
+  // scrollTo, which reads as the title failing rather than the scroll.
+  await expect(page.getByText('דירת גן ברמת השרון').first()).toBeVisible();
+  const moved = await page.locator('#app-scroll').evaluate((el) => {
+    el.scrollTop = 400;
+    return el.scrollTop;
+  });
+  expect(moved, 'the scroller did not move').toBeGreaterThan(44);
+  await expect(barTitle).toHaveCSS('opacity', '1');
+
+  // And it stands down again on the way back up.
+  await page.locator('#app-scroll').evaluate((el) => { el.scrollTop = 0; });
+  await expect(barTitle).toHaveCSS('opacity', '0');
+});
+
+test('a lease row reveals call and WhatsApp when swiped aside', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/leases');
+
+  const row = page.locator('p', { hasText: 'דירת גן ברמת השרון' }).first();
+  await expect(row).toBeVisible();
+
+  // Playwright's touchscreen taps but does not drag, so the gesture is
+  // dispatched as the real touch sequence the component listens for.
+  const moved = await row.evaluate((el) => {
+    const sliding = el.closest('[style*="translateX"]') as HTMLElement | null;
+    const target = sliding ?? (el.closest('div') as HTMLElement);
+    const box = target.getBoundingClientRect();
+    const y = box.top + box.height / 2;
+    const from = box.left + 20;
+
+    const touch = (x: number) =>
+      new Touch({ identifier: 1, target, clientX: x, clientY: y });
+    const fire = (type: string, x: number) =>
+      target.dispatchEvent(
+        new TouchEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          touches: type === 'touchend' ? [] : [touch(x)],
+          changedTouches: [touch(x)],
+        }),
+      );
+
+    fire('touchstart', from);
+    fire('touchmove', from + 30);
+    fire('touchmove', from + 110);
+    fire('touchend', from + 110);
+
+    return new Promise<string>((resolve) =>
+      setTimeout(() => resolve(getComputedStyle(sliding ?? target).transform), 450),
+    );
+  });
+
+  // The row has travelled aside, which is what uncovers the action tray.
+  expect(moved, `row transform after swipe: ${moved}`).not.toBe('none');
+  expect(moved).toMatch(/matrix\(1, 0, 0, 1, \d/);
+
+  await expect(page.locator('a[href^="tel:"]').first()).toBeVisible();
+  await expect(page.getByText('וואטסאפ', { exact: true }).first()).toBeVisible();
+});
+
 test('no horizontal page scroll at any width', async ({ page }) => {
   for (const width of [320, 375, 768, 1280]) {
     await page.setViewportSize({ width, height: 800 });

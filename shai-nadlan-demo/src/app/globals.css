@@ -46,6 +46,11 @@ body.app-shell-locked { overflow: hidden; overscroll-behavior: none; }
   --color-separator: #3C3C431F;
   --color-border:    #3C3C4326;
 
+  /* Chrome material. The saturation is the ingredient people leave out:
+     iOS pulls colour THROUGH the blur, which is why its bars look alive
+     over a photo instead of like frosted plastic. */
+  --color-material: #FFFFFFB8;
+
   /* Accent + semantics (iOS system colours) */
   --color-accent:      #007AFF;
   --color-accent-dark: #0062CC;
@@ -82,6 +87,7 @@ body.app-shell-locked { overflow: hidden; overscroll-behavior: none; }
 
   --color-separator: #54545899;
   --color-border:    #54545866;
+  --color-material: #16161AC7;
 
   --color-accent:      #0A84FF;
   --color-accent-dark: #409CFF;
@@ -116,6 +122,36 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--color-label-tertiary); border-radius: 3px; }
 
+/* ── Chrome material ──────────────────────────────────
+   Blur alone reads as frosted plastic. Saturation is what makes a bar
+   look like iOS glass: colour from the content behind bleeds through it.
+   Where the browser cannot do it, the token's own alpha keeps the bar
+   opaque enough to stay legible. */
+.material {
+  background-color: var(--color-material);
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .material {
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+  }
+}
+
+/* The scroll-edge hairline. iOS shows no separator under a bar until the
+   content actually slides beneath it — the line is a depth cue, not a
+   border, so it has no business being there at rest. */
+.edge-line {
+  box-shadow: 0 0.5px 0 0 var(--color-separator);
+  transition: box-shadow 0.25s ease;
+}
+.edge-line-hidden { box-shadow: 0 0.5px 0 0 transparent; }
+
+/* Large title collapsing into the bar. Both halves cross-fade on the same
+   curve so the eye reads one object moving, not two swapping. */
+.title-swap {
+  transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 /* ── Press feedback ───────────────────────────────────
    iOS shrinks and dims a control under the finger rather than using hover. */
 .press {
@@ -129,6 +165,13 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 .press-row:active { background-color: var(--color-fill); }
+
+/* Swipe is a touch gesture, so the rows that hide their actions behind one
+   must keep them visible wherever there is no touch. Width is the wrong test
+   for that — a narrow laptop window has a mouse — so ask about the pointer. */
+@media (hover: none) and (pointer: coarse) {
+  .pointer-only { display: none !important; }
+}
 
 /* ── Touch target (Apple's 44pt minimum) ──────────────── */
 .touch-target {
@@ -207,6 +250,7 @@ body {
     transition: none;
     transform: none;
   }
+  .title-swap, .edge-line { transition: none; }
 }
 
 /* ── Hide number input spin buttons ───────────────────── */

@@ -4,12 +4,13 @@ import { createClient } from '@/lib/supabase/server';
 import { ILS, heDate, daysUntil, waLink } from '@/lib/format';
 import { leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
 import { Group, Rows, EmptyState } from '@/components/ui';
+import SwipeActions from '@/components/SwipeActions';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata = { title: 'חוזים' };
 
-type LeaseRow = {
+type LeaseRecord = {
   id: string;
   start_date: string;
   end_date: string;
@@ -29,7 +30,7 @@ export default async function LeasesPage() {
     .eq('status', 'active')
     .order('end_date', { ascending: true });
 
-  const leases: (LeaseRow & { days: number })[] = (data ?? []).map((l) => ({
+  const leases: (LeaseRecord & { days: number })[] = (data ?? []).map((l) => ({
     ...l,
     days: daysUntil(l.end_date),
   }));
@@ -64,7 +65,7 @@ export default async function LeasesPage() {
           }
         >
           <Rows>
-            {attention.map((l) => <LeaseItem key={l.id} lease={l} />)}
+            {attention.map((l) => <LeaseRow key={l.id} lease={l} />)}
           </Rows>
         </Group>
       )}
@@ -80,7 +81,7 @@ export default async function LeasesPage() {
           }
         >
           <Rows>
-            {rest.map((l) => <LeaseItem key={l.id} lease={l} />)}
+            {rest.map((l) => <LeaseRow key={l.id} lease={l} />)}
           </Rows>
         </Group>
       )}
@@ -88,7 +89,43 @@ export default async function LeasesPage() {
   );
 }
 
-function LeaseItem({ lease }: { lease: LeaseRow & { days: number } }) {
+/**
+ * On a phone the row hides its actions until you sweep it aside; on a pointer
+ * device there is no sweep, so the same actions stay visible in the row.
+ */
+function LeaseRow({ lease }: { lease: LeaseRecord & { days: number } }) {
+  const phone = lease.tenant?.phone;
+  if (!phone) return <LeaseItem lease={lease} />;
+
+  return (
+    <SwipeActions
+      actions={
+        <>
+          <a
+            href={waLink(phone)}
+            target="_blank"
+            rel="noreferrer"
+            className="flex-1 flex flex-col items-center justify-center gap-1 bg-success text-white"
+          >
+            <MessageSquare size={19} strokeWidth={2.2} />
+            <span className="text-[11px] font-semibold">וואטסאפ</span>
+          </a>
+          <a
+            href={`tel:${phone}`}
+            className="flex-1 flex flex-col items-center justify-center gap-1 bg-accent text-white"
+          >
+            <Phone size={19} strokeWidth={2.2} />
+            <span className="text-[11px] font-semibold">חיוג</span>
+          </a>
+        </>
+      }
+    >
+      <LeaseItem lease={lease} />
+    </SwipeActions>
+  );
+}
+
+function LeaseItem({ lease }: { lease: LeaseRecord & { days: number } }) {
   const urgency = leaseUrgency(lease.days);
   const style = URGENCY_STYLE[urgency];
 
@@ -136,7 +173,7 @@ function LeaseItem({ lease }: { lease: LeaseRow & { days: number } }) {
           <p className="text-[12px] text-label-tertiary truncate">{lease.notes}</p>
         ) : <span />}
         {lease.tenant?.phone && (
-          <div className="flex items-center shrink-0 -mb-1">
+          <div className="pointer-only flex items-center shrink-0 -mb-1">
             <a href={waLink(lease.tenant.phone)} target="_blank" rel="noreferrer"
               className="press touch-target rounded-full text-label-tertiary hover:text-success" title="וואטסאפ לשוכר">
               <MessageSquare size={18} strokeWidth={2} />
