@@ -11,10 +11,10 @@ const heebo = Heebo({
 
 export const metadata: Metadata = {
   title: {
-    default: 'שי עובדיה · ניהול נדל”ן',
-    template: '%s · שי עובדיה נדל”ן',
+    default: 'שי עובדיה · ניהול נדל״ן',
+    template: '%s · שי עובדיה נדל״ן',
   },
-  description: 'מערכת ניהול תיק הנדל”ן של שי עובדיה — נכסים, שוכרים וחוזים במקום אחד.',
+  description: 'מערכת ניהול תיק הנדל״ן של שי עובדיה — נכסים, שוכרים וחוזים במקום אחד.',
   robots: { index: false, follow: false },
 };
 
