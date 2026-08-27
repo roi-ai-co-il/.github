@@ -231,6 +231,36 @@ body {
 .welcome-line-3 { animation: welcome-line 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both; }
 .welcome-out { animation: welcome-exit 0.45s cubic-bezier(0.4, 0, 1, 1) both; }
 
+/* ── Code verified ────────────────────────────────────
+   Deliberately unhurried. The ring draws first, the check follows it, and
+   only then do the words arrive — a confirmation that lands too fast reads
+   as a page flicker rather than as an answer to what the person just did.
+   `--dash` is the path length, set inline per shape so one keyframe can
+   draw both the ring and the tick. */
+@keyframes verify-disc {
+  0%   { opacity: 0; transform: scale(0.6); }
+  60%  { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes verify-draw {
+  from { stroke-dashoffset: var(--dash); }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes verify-ring {
+  0%   { opacity: 0.45; transform: scale(0.85); }
+  100% { opacity: 0; transform: scale(2.2); }
+}
+@keyframes verify-line {
+  from { opacity: 0; transform: translateY(12px); filter: blur(5px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+.verify-disc   { animation: verify-disc 0.7s cubic-bezier(0.34, 1.4, 0.5, 1) both; }
+.verify-circle { stroke-dasharray: var(--dash); animation: verify-draw 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.10s both; }
+.verify-check  { stroke-dasharray: var(--dash); animation: verify-draw 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.62s both; }
+.verify-ring   { animation: verify-ring 1.35s cubic-bezier(0.16, 1, 0.3, 1) 0.75s both; }
+.verify-line-1 { animation: verify-line 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.95s both; }
+.verify-line-2 { animation: verify-line 0.55s cubic-bezier(0.16, 1, 0.3, 1) 1.12s both; }
+
 /* Motion is decoration here; the content is identical without it. */
 @media (prefers-reduced-motion: reduce) {
   .stagger > *,
@@ -240,12 +270,21 @@ body {
   .welcome-line-1,
   .welcome-line-2,
   .welcome-line-3,
-  .welcome-out {
+  .welcome-out,
+  .verify-disc,
+  .verify-circle,
+  .verify-check,
+  .verify-ring,
+  .verify-line-1,
+  .verify-line-2 {
     animation: none;
     opacity: 1;
     transform: none;
     filter: none;
+    stroke-dashoffset: 0;
   }
+  /* The pulse has no still form worth showing. */
+  .verify-ring { opacity: 0; }
   .press, .press:active, .press-row, .press-row:active {
     transition: none;
     transform: none;

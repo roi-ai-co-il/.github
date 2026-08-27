@@ -12,7 +12,60 @@ const CODE_LENGTH = 6;
  *  rather than optimistic — offering "resend" every 30s would just earn a 429. */
 const RESEND_SECONDS = 60;
 
-type Step = 'email' | 'code';
+/** How long the confirmation is allowed to play before the app takes over.
+ *  The last line of it lands at ~1.67s, so this leaves a real beat to read
+ *  it — a check that flashes past reads as a glitch, not as an answer. */
+const VERIFIED_MS = 2300;
+
+type Step = 'email' | 'code' | 'verified';
+
+/**
+ * The moment the code is accepted. The ring draws itself, the tick follows it,
+ * a soft pulse leaves the mark, and the words arrive last — the order matters
+ * more than the speed, because it reads as a sequence of events rather than a
+ * state that simply appeared.
+ *
+ * `--dash` carries each shape's own path length so one keyframe can draw both.
+ */
+function Verified() {
+  const R = 34;
+  const RING = +(2 * Math.PI * R).toFixed(1); // 213.6
+  const CHECK = 44; // length of the tick path below, rounded up
+
+  return (
+    <div className="flex flex-col items-center text-center py-7" role="status" aria-live="polite">
+      <div className="relative w-[92px] h-[92px]">
+        <span className="verify-ring absolute inset-0 rounded-full border-2 border-success" aria-hidden />
+        <span className="verify-disc absolute inset-0 rounded-full bg-success-tint" aria-hidden />
+        <svg viewBox="0 0 92 92" className="relative w-[92px] h-[92px]" fill="none" aria-hidden>
+          <circle
+            className="verify-circle"
+            style={{ ['--dash' as string]: RING }}
+            cx="46"
+            cy="46"
+            r={R}
+            stroke="var(--color-success)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            transform="rotate(-90 46 46)"
+          />
+          <path
+            className="verify-check"
+            style={{ ['--dash' as string]: CHECK }}
+            d="M32 47.5 L42 57 L61 36"
+            stroke="var(--color-success)"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+
+      <p className="verify-line-1 mt-6 text-[22px] font-bold text-label tracking-tight">הקוד אומת</p>
+      <p className="verify-line-2 mt-1.5 text-[15px] text-label-secondary">נכנסים למערכת…</p>
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -96,9 +149,20 @@ export default function LoginPage() {
     // The session is written to a cookie by the SSR client and refreshed by the
     // middleware on every request, so this is the last time a code is needed
     // until the refresh token itself expires.
-    router.replace('/');
-    router.refresh();
+    setStep('verified');
   };
+
+  // Held apart from verify() so the timer is owned by the render that shows the
+  // confirmation — navigating from inside the submit handler would leave a
+  // pending timeout behind if the person left the page mid-animation.
+  useEffect(() => {
+    if (step !== 'verified') return;
+    const t = setTimeout(() => {
+      router.replace('/');
+      router.refresh();
+    }, VERIFIED_MS);
+    return () => clearTimeout(t);
+  }, [step, router]);
 
   const field =
     'w-full bg-surface-sunken rounded-xl px-4 py-3 text-[16px] text-label placeholder:text-label-tertiary outline-none focus:ring-2 focus:ring-accent/30 text-left';
@@ -106,6 +170,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-[100dvh] bg-canvas flex flex-col items-center justify-center px-6 py-10">
       <div className="w-full max-w-[340px] animate-in">
+        {step === 'verified' ? (
+          <Verified />
+        ) : (
+          <>
         <div className="flex flex-col items-center text-center">
           <div className="w-[68px] h-[68px] rounded-[22px] bg-accent flex items-center justify-center">
             <Building2 size={32} className="text-white" strokeWidth={2} />
@@ -221,6 +289,8 @@ export default function LoginPage() {
               {cooldown > 0 ? `שליחה חוזרת בעוד ${cooldown}` : 'שליחת קוד חדש'}
             </button>
           </form>
+        )}
+          </>
         )}
 
         <p className="mt-10 text-center text-[12px] text-label-tertiary">
