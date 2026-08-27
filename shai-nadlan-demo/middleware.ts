@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { isAllowedEmail } from '@/lib/auth-config';
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -31,6 +32,18 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isLogin = request.nextUrl.pathname.startsWith('/login');
+
+  // A session for any other address is refused here, not only in the login form.
+  // Every row is scoped `owner = auth.uid()` to ONE account, so another user
+  // would sign in successfully and then read nothing — and a check that lives
+  // only in client code is a convenience, not a control.
+  if (user && !isAllowedEmail(user.email)) {
+    await supabase.auth.signOut();
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
   if (!user && !isLogin) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';

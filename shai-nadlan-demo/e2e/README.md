@@ -8,13 +8,18 @@ access — add that case there.
 
 Mint a session cookie and run:
 
+Sign-in is a one-time code sent to the single authorized address, and password
+grant is disabled, so a session has to be minted with the service-role key
+rather than by posting a password.
+
 ```bash
-# 1. Sign in and turn the session into the cookie supabase-ssr writes.
+# 1. Mint a session for the demo account and turn it into the cookie
+#    supabase-ssr writes. Needs SUPABASE_SERVICE_ROLE_KEY (never commit it).
 SESSION=$(curl -s -X POST \
-  "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/token?grant_type=password" \
+  "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/token?grant_type=refresh_token" \
   -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"email":"shai@nadlan-demo.co.il","password":"<demo password>"}')
+  -d "{\"refresh_token\":\"$E2E_REFRESH_TOKEN\"}")
 
 export E2E_SESSION_COOKIE="base64-$(printf '%s' "$SESSION" | python3 -c '
 import sys, json, base64
