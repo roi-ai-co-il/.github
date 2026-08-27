@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Building2, ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/Toast';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 type Img = { id: string; url: string };
 
@@ -22,7 +24,9 @@ export default function PropertyGallery({ propertyId, propertyName, images, cove
   const [selected, setSelected] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Img | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const current = gallery[Math.min(selected, gallery.length - 1)];
 
@@ -63,6 +67,7 @@ export default function PropertyGallery({ propertyId, propertyName, images, cove
         });
         if (insErr) throw new Error('שמירת התמונה נכשלה — נסה שוב');
       }
+      toast(files.length > 1 ? `${files.length} תמונות נוספו` : 'התמונה נוספה');
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'שגיאה בהעלאת התמונה');
@@ -72,8 +77,10 @@ export default function PropertyGallery({ propertyId, propertyName, images, cove
     }
   };
 
-  const removeImage = async (img: Img) => {
-    if (img.id === 'cover') return;
+  const confirmDelete = async () => {
+    const img = pendingDelete;
+    setPendingDelete(null);
+    if (!img || img.id === 'cover') return;
     setError(null);
     const supabase = createClient();
     const { error: delErr } = await supabase.from('property_images').delete().eq('id', img.id);
@@ -82,6 +89,7 @@ export default function PropertyGallery({ propertyId, propertyName, images, cove
       return;
     }
     setSelected(0);
+    toast('התמונה נמחקה', 'info');
     router.refresh();
   };
 
@@ -119,11 +127,17 @@ export default function PropertyGallery({ propertyId, propertyName, images, cove
             >
               <Image src={img.url} alt="" fill sizes="58px" className="object-cover" />
             </button>
+            {/* Shown on the selected thumbnail always, and on hover for a
+                pointer. Hover-only would put it out of reach on a phone, which
+                is where this gallery is mostly used. */}
             {img.id !== 'cover' && (
               <button
-                onClick={() => removeImage(img)}
-                className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-danger text-white hidden group-hover:flex items-center justify-center shadow"
+                onClick={() => setPendingDelete(img)}
+                className={`absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-danger text-white items-center justify-center shadow ${
+                  i === selected ? 'flex' : 'hidden group-hover:flex'
+                }`}
                 title="מחק תמונה"
+                aria-label={`מחק תמונה ${i + 1}`}
               >
                 <Trash2 size={10} strokeWidth={2.5} />
               </button>
@@ -156,6 +170,16 @@ export default function PropertyGallery({ propertyId, propertyName, images, cove
           {error}
         </p>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="למחוק את התמונה?"
+        message="הפעולה אינה הפיכה."
+        confirmLabel="מחק"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

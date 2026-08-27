@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronRight, Loader2, Save } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { PROPERTY_TYPES, PROPERTY_STATUS } from '@/lib/domain';
+import { useToast } from '@/components/Toast';
 
 const inputCls =
   'w-full bg-surface-sunken rounded-xl px-4 py-3 text-[16px] text-label placeholder:text-label-tertiary outline-none focus:ring-2 focus:ring-accent/30';
@@ -13,6 +14,7 @@ const labelCls = 'block text-[13px] font-medium text-label-secondary mb-1.5 mr-1
 
 export default function NewPropertyPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -77,6 +79,7 @@ export default function NewPropertyPage() {
       setSaving(false);
       return;
     }
+    toast('הנכס נשמר');
     router.push(`/properties/${data.id}`);
     router.refresh();
   };

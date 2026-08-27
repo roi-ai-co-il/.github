@@ -6,6 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
+import PullToRefresh from '@/components/PullToRefresh';
+import { ToastProvider } from '@/components/Toast';
 
 const NAV_ITEMS = [
   { href: '/', label: 'בית', icon: LayoutGrid },
@@ -67,6 +69,7 @@ export default function AppShell({ children, email, firstName }: {
   };
 
   return (
+    <ToastProvider>
     <div className="h-[100dvh] flex flex-col overflow-hidden bg-canvas">
       <WelcomeOverlay firstName={firstName} />
 
@@ -121,7 +124,9 @@ export default function AppShell({ children, email, firstName }: {
 
       {/* ── Main — the app's single scroll container ───────── */}
       <main id="app-scroll" className="flex-1 min-h-0 overflow-y-auto overscroll-contain w-full px-4 py-5 md:px-6 md:py-7">
-        <div className="max-w-5xl w-full mx-auto">{children}</div>
+        <div className="max-w-5xl w-full mx-auto">
+          <PullToRefresh>{children}</PullToRefresh>
+        </div>
       </main>
 
       {/* ── Tab bar (flex child, never fixed — it cannot drift on iOS) ──── */}
@@ -153,5 +158,6 @@ export default function AppShell({ children, email, firstName }: {
         </div>
       </nav>
     </div>
+    </ToastProvider>
   );
 }

@@ -97,6 +97,24 @@ test('property detail shows facts, gallery and the active lease', async ({ page 
   await expect(page.getByRole('button', { name: 'הוסף תמונות' })).toBeVisible();
 });
 
+test('deleting a gallery image asks first', async ({ page }) => {
+  await page.goto('/properties/20000000-0000-4000-8000-000000000001');
+
+  // Selecting a thumbnail reveals its delete affordance — on touch too, where
+  // there is no hover to reveal it.
+  await page.getByRole('button', { name: 'תמונה 2', exact: true }).click();
+  await page.getByRole('button', { name: 'מחק תמונה 2' }).click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('למחוק את התמונה?');
+
+  // Cancelling leaves the gallery untouched — nothing irreversible on one tap.
+  await dialog.getByRole('button', { name: 'ביטול' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('button', { name: 'תמונה 2', exact: true })).toBeVisible();
+});
+
 test('leases page groups by urgency', async ({ page }) => {
   await page.goto('/leases');
   await expect(page.getByRole('heading', { name: 'חוזים', exact: true })).toBeVisible();
