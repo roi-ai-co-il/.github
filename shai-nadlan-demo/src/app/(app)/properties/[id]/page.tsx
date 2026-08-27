@@ -42,7 +42,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   const facts = [
     { icon: Layers, label: 'סוג נכס', value: PROPERTY_TYPES[property.property_type] ?? property.property_type },
     { icon: BedDouble, label: 'חדרים', value: property.rooms != null ? `${property.rooms}` : null },
-    { icon: Ruler, label: 'שטח', value: property.area_sqm != null ? `${property.area_sqm} מ”ר` : null },
+    { icon: Ruler, label: 'שטח', value: property.area_sqm != null ? `${property.area_sqm} מ״ר` : null },
     { icon: Layers, label: 'קומה', value: property.floor_no != null ? `${property.floor_no}` : null },
     { icon: Wallet, label: 'מחיר רכישה', value: property.purchase_price != null ? ILS(property.purchase_price) : null },
     { icon: CalendarDays, label: 'תאריך רכישה', value: property.purchase_date ? heDate(property.purchase_date) : null },
