@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Building2, Loader2, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { ALLOWED_EMAIL, isAllowedEmail } from '@/lib/auth-config';
+import { isAllowedEmail } from '@/lib/auth-config';
 
 /** Supabase is configured for a 6-digit code (`mailer_otp_length: 6`). */
 const CODE_LENGTH = 6;
@@ -70,7 +70,7 @@ function Verified() {
 export default function LoginPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('email');
-  const [email, setEmail] = useState(ALLOWED_EMAIL);
+  const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);

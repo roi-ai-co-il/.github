@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
 import { RotateCw } from 'lucide-react';
 
 const THRESHOLD = 70;
@@ -12,7 +11,6 @@ const MAX_PULL = 120;
  * Mobile only — on a pointer device the browser's own reload is the gesture.
  */
 export default function PullToRefresh({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef<number | null>(null);
@@ -51,13 +49,10 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
       startY.current = null;
       if (pull >= THRESHOLD && !refreshing) {
         setRefreshing(true);
-        router.refresh();
-        // The server components re-render on their own; hold the spinner long
-        // enough to read as a refresh rather than a flicker.
-        setTimeout(() => {
-          setRefreshing(false);
-          setPull(0);
-        }, 700);
+        // A full reload, not router.refresh(): the gesture's contract is
+        // "give me the latest" — data AND the latest deployed build. The
+        // spinner stays up until the new document takes over.
+        window.location.reload();
       } else {
         setPull(0);
       }
@@ -73,7 +68,7 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
       window.removeEventListener('touchend', onEnd);
       window.removeEventListener('touchcancel', onEnd);
     };
-  }, [pull, refreshing, router]);
+  }, [pull, refreshing]);
 
   const ready = pull >= THRESHOLD;
 
