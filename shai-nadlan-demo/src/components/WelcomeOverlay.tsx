@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Building2 } from 'lucide-react';
 
-const SESSION_KEY = 'welcomed';
 const HOLD_MS = 2100;
 const EXIT_MS = 450;
+/** Returning to the app after this long away counts as a new entry. */
+const AWAY_MS = 20 * 60_000;
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -16,38 +17,51 @@ function greeting(): string {
 }
 
 /**
- * The greeting Shai sees when he opens the system. Shown once per browser
- * session so it stays a welcome rather than an interruption on every
- * navigation, and dismissible on tap for anyone who has seen it enough.
+ * The greeting Shai sees when he opens the system — on every entry:
+ * each full load, and again when the app returns to the foreground after
+ * a real absence (a quick hop to WhatsApp and back stays quiet). The
+ * greeting itself follows the clock: בוקר טוב / צהריים טובים / ערב טוב.
+ * Dismissible on tap.
  */
 export default function WelcomeOverlay({ firstName }: { firstName: string }) {
-  // Start hidden: the check reads sessionStorage, which only exists in the
-  // browser, and rendering the overlay during SSR would flash it for everyone.
+  // Start hidden so SSR never flashes the overlay; the first effect run
+  // plays it immediately on the client.
   const [phase, setPhase] = useState<'hidden' | 'in' | 'out'>('hidden');
   const [line, setLine] = useState('');
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const hiddenAt = useRef<number | null>(null);
 
-  useEffect(() => {
-    let seen = true;
-    try {
-      seen = sessionStorage.getItem(SESSION_KEY) === '1';
-    } catch {
-      // Private mode or blocked storage: greet, don't crash.
-      seen = false;
-    }
-    if (seen) return;
-
+  const play = () => {
+    timers.current.forEach(clearTimeout);
     setLine(greeting());
     setPhase('in');
-    try {
-      sessionStorage.setItem(SESSION_KEY, '1');
-    } catch {}
+    timers.current = [
+      setTimeout(() => setPhase('out'), HOLD_MS),
+      setTimeout(() => setPhase('hidden'), HOLD_MS + EXIT_MS),
+    ];
+  };
 
-    const toExit = setTimeout(() => setPhase('out'), HOLD_MS);
-    const toGone = setTimeout(() => setPhase('hidden'), HOLD_MS + EXIT_MS);
-    return () => {
-      clearTimeout(toExit);
-      clearTimeout(toGone);
+  useEffect(() => {
+    play();
+
+    // An installed home-screen app rarely reloads — reopening it resumes the
+    // page. Treat coming back after a real absence as a fresh entry.
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt.current = Date.now();
+        return;
+      }
+      if (hiddenAt.current !== null && Date.now() - hiddenAt.current >= AWAY_MS) {
+        play();
+      }
+      hiddenAt.current = null;
     };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      timers.current.forEach(clearTimeout);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (phase === 'hidden') return null;
