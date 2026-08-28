@@ -61,7 +61,8 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     // Everything except API routes (they answer 401 themselves — a login
-    // redirect is wrong for JSON callers), static assets and images.
-    '/((?!api/|_next/static|_next/image|favicon.ico|icon.svg|.*\\.(?:svg|png|jpg|jpeg|webp)$).*)',
+    // redirect is wrong for JSON callers) and static files: images, scripts,
+    // the web manifest and fonts must never bounce to /login.
+    '/((?!api/|_next/static|_next/image|favicon.ico|icon.svg|.*\\.(?:svg|png|jpg|jpeg|webp|ico|js|css|json|webmanifest|txt|woff2?)$).*)',
   ],
 };
