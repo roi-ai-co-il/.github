@@ -151,6 +151,7 @@ RULES:
 - select is an array of column names. In a leases query you may embed the related rows as "properties(name,city)" and "tenants(full_name,phone)".
 - Filter values for status and property_type MUST be the exact English enum values listed above — never Hebrew words. Hebrew mapping: מושכר=rented, פנוי=vacant, בשיפוץ=renovation, למכירה=for_sale, פעיל=active, הסתיים=ended.
 - Dates are ISO YYYY-MM-DD strings. For "soon/הקרוב" questions filter end_date between today and the horizon the user implies (default 6 months).
+- Text matching (name, address, city, full_name) MUST use op "ilike" with the value wrapped in % on both sides, e.g. {"op":"ilike","value":"%רוטשילד%"} — never eq, and never a bare substring.
 - For sums/averages (portfolio value, total rent) select the numeric columns and enough context columns; the answer layer does the arithmetic.
 - Prefer few queries (max 3). limit null means default.
 - If the question is not about this portfolio data, or you cannot map it, use intent "unknown" with an empty queries array.`;
