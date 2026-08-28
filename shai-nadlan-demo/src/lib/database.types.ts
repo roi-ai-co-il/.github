@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      lease_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          due_date: string
+          id: string
+          lease_id: string
+          owner: string
+          paid: boolean
+          paid_date: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          due_date: string
+          id?: string
+          lease_id: string
+          owner?: string
+          paid?: boolean
+          paid_date?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          due_date?: string
+          id?: string
+          lease_id?: string
+          owner?: string
+          paid?: boolean
+          paid_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lease_payments_lease_id_fkey"
+            columns: ["lease_id"]
+            isOneToOne: false
+            referencedRelation: "leases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leases: {
         Row: {
           created_at: string
@@ -79,6 +120,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      portfolio_members: {
+        Row: {
+          created_at: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       properties: {
         Row: {
@@ -216,7 +275,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_portfolio_member: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { FileText, AlertCircle, CheckCircle2, Phone, ChevronLeft } from 'lucide-react';
+import { FileText, AlertCircle, CheckCircle2, ChevronLeft, Users, Phone } from 'lucide-react';
 import ContactButtons, { WhatsAppIcon } from '@/components/ContactButtons';
 import { createClient } from '@/lib/supabase/server';
 import { ILS, heDate, daysUntil, waLink } from '@/lib/format';
@@ -20,6 +20,7 @@ type LeaseRecord = {
   notes: string | null;
   property: { id: string; name: string; city: string } | null;
   tenant: { full_name: string; phone: string | null } | null;
+  payments: { paid: boolean; due_date: string }[];
 };
 
 export default async function LeasesPage() {
@@ -27,7 +28,7 @@ export default async function LeasesPage() {
 
   const { data } = await supabase
     .from('leases')
-    .select('id, start_date, end_date, monthly_rent, linked_to_cpi, notes, property:properties(id, name, city), tenant:tenants(full_name, phone)')
+    .select('id, start_date, end_date, monthly_rent, linked_to_cpi, notes, property:properties(id, name, city), tenant:tenants(full_name, phone), payments:lease_payments(paid, due_date)')
     .eq('status', 'active')
     .order('end_date', { ascending: true });
 
@@ -42,11 +43,17 @@ export default async function LeasesPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-[30px] font-bold text-label tracking-tight leading-tight">חוזים</h1>
-        <p className="text-[13px] text-label-tertiary mt-0.5">
-          {leases.length} פעילים · {ILS(monthlyTotal)} לחודש
-        </p>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[30px] font-bold text-label tracking-tight leading-tight">חוזים</h1>
+          <p className="text-[13px] text-label-tertiary mt-0.5">
+            {leases.length} פעילים · {ILS(monthlyTotal)} לחודש
+          </p>
+        </div>
+        <Link href="/tenants" className="press shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-sunken border border-separator text-[13px] font-semibold text-label">
+          <Users size={14} strokeWidth={2.2} />
+          <span>שוכרים</span>
+        </Link>
       </div>
 
       {leases.length === 0 && (
@@ -129,6 +136,8 @@ function LeaseRow({ lease }: { lease: LeaseRecord & { days: number } }) {
 function LeaseItem({ lease }: { lease: LeaseRecord & { days: number } }) {
   const urgency = leaseUrgency(lease.days);
   const style = URGENCY_STYLE[urgency];
+  const todayIso = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const overdue = (lease.payments ?? []).some((p) => !p.paid && p.due_date <= todayIso);
 
   const totalDays = daysUntil(lease.end_date) - daysUntil(lease.start_date);
   const elapsed = -daysUntil(lease.start_date);
@@ -156,6 +165,11 @@ function LeaseItem({ lease }: { lease: LeaseRecord & { days: number } }) {
           <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${style.text} ${style.bg}`}>
             {style.label(lease.days)}
           </span>
+          {overdue && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold text-white bg-danger">
+              תשלום ממתין
+            </span>
+          )}
         </div>
       </div>
 

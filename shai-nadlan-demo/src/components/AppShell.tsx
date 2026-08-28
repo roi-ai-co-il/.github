@@ -23,6 +23,7 @@ const BAR_TITLES: Record<string, string> = {
   '/properties': 'נכסים',
   '/leases': 'חוזים',
   '/properties/new': 'נכס חדש',
+  '/tenants': 'שוכרים',
 };
 
 function isActive(pathname: string, href: string) {

@@ -52,6 +52,8 @@ const digits = (s) => (s ?? '').replace(/\D/g, '');
 const props = await rest('properties?select=id,name,status,current_value,cover_image_url,rooms');
 const leases = await rest('leases?select=id,end_date,monthly_rent,status&status=eq.active');
 const tenants0 = await rest('tenants?select=id');
+const todayIso0 = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+const unpaidDue0 = await rest('lease_payments?select=id&paid=eq.false&due_date=lte.' + todayIso0);
 const today = new Date(); today.setHours(0, 0, 0, 0);
 const dUntil = (d) => Math.round((new Date(d).setHours(0, 0, 0, 0) - today.getTime()) / 86400000);
 const GT = {
@@ -62,6 +64,7 @@ const GT = {
   attention90: leases.filter((l) => dUntil(l.end_date) <= 90).length,
   vacant: props.filter((p) => p.status === 'vacant').length,
   tenantCount: tenants0.length,
+  unpaidDue: unpaidDue0.length,
   rented: props.filter((p) => p.status === 'rented').length,
 };
 console.log(`ground truth: ${GT.propCount} props, value ${GT.totalValue}, monthly ${GT.monthly}, active ${GT.activeLeases}, ≤90d ${GT.attention90}`);
@@ -234,6 +237,20 @@ try {
     dbLease.length === 1 && Number(dbLease[0].monthly_rent) === 5000 && dbLease[0].tenant?.full_name === 'שוכר בדיקת QA' && dbProp[0]?.status === 'rented',
     JSON.stringify({ lease: dbLease.length, rent: dbLease[0]?.monthly_rent, prop: dbProp[0]?.status }));
 
+  // payment schedule born with the lease + one-tap mark-as-paid
+  const sched = await rest(`lease_payments?select=id,paid&lease_id=eq.${dbLease[0].id}`);
+  check('3.45a2 monthly payment schedule generated with the lease', sched.length === 12, `rows: ${sched.length}`);
+  await page.getByRole('button', { name: 'שולם', exact: true }).first().click();
+  await page.waitForTimeout(1200);
+  const paidNow = await rest(`lease_payments?select=id&lease_id=eq.${dbLease[0].id}&paid=eq.true`);
+  check('3.45a3 mark-as-paid via UI persists', paidNow.length === 1, `paid: ${paidNow.length}`);
+
+  // tenants screen lists the new tenant with contact buttons
+  await page.goto(`${BASE}/tenants`, { waitUntil: 'networkidle' });
+  const tenantsBody = await page.locator('body').innerText();
+  check('3.45a4 tenants screen shows the new tenant', tenantsBody.includes('שוכר בדיקת QA') && tenantsBody.includes('שוכרים'));
+  await page.goto(`${BASE}/properties/${qaPropertyId}`, { waitUntil: 'networkidle' });
+
   // renew at a new price
   await page.getByText('שוכר חדש / מחיר חדש').click();
   await page.waitForURL(/renew=1/, { timeout: 15000 });
@@ -285,6 +302,7 @@ try {
   check('3.5a leases header matches DB (count + monthly)',
     leasesBody.includes(`${GT.activeLeases} פעילים`) && leasesBody.includes(GT.monthly.toLocaleString('he-IL')));
   check('3.5b attention section present with rows', leasesBody.includes('דורש טיפול') && leasesBody.includes('תקינים'));
+  check('3.5d overdue-payment badge shown on lease rows', GT.unpaidDue === 0 || leasesBody.includes('תשלום ממתין'), `unpaidDue=${GT.unpaidDue}`);
   const contactLinks = await page.locator('a[href*="wa.me"]').count();
   check('3.5c desktop shows WhatsApp actions on lease rows', contactLinks >= GT.attention90, `${contactLinks}`);
   await page.screenshot({ path: dir + '../../qa-4-leases.png' });
@@ -296,6 +314,13 @@ try {
   await page.waitForTimeout(800);
   const rentSummary = await page.locator('.bg-accent-tint.rounded-2xl').first().textContent();
   check('3.6a assistant rent answer matches DB', (rentSummary ?? '').includes(GT.monthly.toLocaleString('he-IL')), rentSummary?.slice(0, 60));
+  await page.getByTitle('חזרה').click();
+  await page.getByText('מי לא שילם', { exact: true }).click();
+  await page.waitForTimeout(800);
+  const debtsBody = await page.locator('body').innerText();
+  check('3.6b assistant "מי לא שילם" matches DB unpaid-due state',
+    GT.unpaidDue === 0 ? debtsBody.includes('הכול שולם') : (debtsBody.includes('לגבייה') && debtsBody.includes('ממתינ')),
+    `unpaidDue=${GT.unpaidDue}`);
   await page.keyboard.press('Escape');
 
   // 3.7 Dark mode

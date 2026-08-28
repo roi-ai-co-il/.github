@@ -11,6 +11,7 @@ import { PROPERTY_TYPES, leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
 import { StatusBadge, Group, Rows, EmptyState, IconChip } from '@/components/ui';
 import PropertyGallery from '@/components/PropertyGallery';
 import PropertyActions from '@/components/PropertyActions';
+import PaymentsCard from '@/components/PaymentsCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,13 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   ]);
 
   const activeLease = (leases ?? []).find((l) => l.status === 'active');
+  const { data: payments } = activeLease
+    ? await supabase
+        .from('lease_payments')
+        .select('id, due_date, amount, paid, paid_date')
+        .eq('lease_id', activeLease.id)
+        .order('due_date')
+    : { data: null };
   const appreciation =
     property.purchase_price && property.current_value
       ? ((property.current_value - property.purchase_price) / property.purchase_price) * 100
@@ -120,13 +128,16 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* ── Active lease ────────────────────────────── */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-5">
           {activeLease ? (
             <LeasePanel lease={activeLease} />
           ) : (
             <Group title="חוזה שכירות">
               <EmptyState icon={FileText} text="אין חוזה פעיל בנכס זה" />
             </Group>
+          )}
+          {activeLease && (payments ?? []).length > 0 && (
+            <PaymentsCard payments={(payments ?? []).map((x) => ({ ...x, amount: Number(x.amount) }))} />
           )}
         </div>
       </div>

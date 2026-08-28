@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Sparkles, X, Search, ChevronRight, ChevronLeft, Phone, User, Building2, FileText,
-  LayoutGrid, Plus, Wallet, Landmark, KeyRound, CalendarClock, PieChart, Send,
+  LayoutGrid, Plus, Wallet, Landmark, KeyRound, CalendarClock, PieChart, Send, CircleDollarSign,
   History,
   type LucideIcon,
 } from 'lucide-react';
@@ -83,6 +83,7 @@ interface LeaseRow {
   tenants: { full_name: string; phone: string | null } | null;
 }
 interface TenantRow { id: string; full_name: string; phone: string | null; email: string | null }
+interface PaymentRowA { id: string; lease_id: string; due_date: string; amount: number; paid: boolean }
 
 interface ResultRow {
   id: string;
@@ -140,6 +141,7 @@ function pushRecent(r: Recent): Recent[] {
 // live data the moment they're asked. No model, no waiting.
 // ─────────────────────────────────────────────────────────────
 const ACTIONS: ActionDef[] = [
+  { id: 'debts', label: 'מי לא שילם', hint: 'תשלומי שכירות שממתינים לגבייה', icon: CircleDollarSign, group: 'answers', keywords: 'שילם לא שילם חוב חובות תשלום תשלומים גבייה איחור ממתין כסף' },
   { id: 'ending', label: 'אילו חוזים מסתיימים בקרוב', hint: 'חצי השנה הקרובה, כולל באיחור', icon: CalendarClock, group: 'answers', keywords: 'חוזה חוזים מסתיים מסתיימים תוקף חידוש שכירות פג דורש טיפול' },
   { id: 'vacant', label: 'אילו נכסים לא מושכרים', hint: 'פנויים, בשיפוץ ולמכירה', icon: KeyRound, group: 'answers', keywords: 'פנוי פנויים ריק שיפוץ למכירה לא מושכר תפוסה' },
   { id: 'rent', label: 'כמה שכר דירה נכנס בחודש', hint: 'כל החוזים הפעילים', icon: Wallet, group: 'answers', keywords: 'שכירות שכר דירה הכנסה חודשית תשלום כסף כמה נכנס' },
@@ -191,6 +193,7 @@ export default function AssistantChat() {
   const [properties, setProperties] = useState<PropertyRow[] | null>(null);
   const [leases, setLeases] = useState<LeaseRow[] | null>(null);
   const [tenants, setTenants] = useState<TenantRow[] | null>(null);
+  const [payments, setPayments] = useState<PaymentRowA[] | null>(null);
   const [dataFailed, setDataFailed] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -240,23 +243,25 @@ export default function AssistantChat() {
     setRecents(readRecents());
     const supabase = createClient();
     (async () => {
-      const [p, l, t] = await Promise.all([
+      const [p, l, t, pay] = await Promise.all([
         supabase.from('properties').select('id,name,address,city,property_type,rooms,status,current_value'),
         supabase.from('leases').select('id,property_id,tenant_id,start_date,end_date,monthly_rent,status,properties(name,city),tenants(full_name,phone)'),
         supabase.from('tenants').select('id,full_name,phone,email'),
+        supabase.from('lease_payments').select('id,lease_id,due_date,amount,paid'),
       ]);
       if (cancelled) return;
       // A failed fetch must never read as "there is nothing" — otherwise a
       // dropped request answers "הכול מושכר" with confidence.
-      if (p.error || l.error || t.error) { setDataFailed(true); return; }
+      if (p.error || l.error || t.error || pay.error) { setDataFailed(true); return; }
       setProperties((p.data ?? []) as PropertyRow[]);
       setLeases((l.data ?? []) as unknown as LeaseRow[]);
       setTenants((t.data ?? []) as TenantRow[]);
+      setPayments((pay.data ?? []) as PaymentRowA[]);
     })();
     return () => { cancelled = true; };
   }, [open]);
 
-  const loading = !dataFailed && (properties === null || leases === null || tenants === null);
+  const loading = !dataFailed && (properties === null || leases === null || tenants === null || payments === null);
 
   useEffect(() => {
     if (!open) return;
@@ -370,8 +375,36 @@ export default function AssistantChat() {
     const props = properties!;
     const allLeases = leases!;
     const active = allLeases.filter((l) => l.status === 'active');
+    const todayIso = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
     switch (id) {
+      case 'debts': {
+        const byLease = new Map(allLeases.map((l) => [l.id, l]));
+        const due = (payments ?? [])
+          .filter((x) => !x.paid && x.due_date <= todayIso)
+          .sort((a, b) => (a.due_date > b.due_date ? 1 : -1));
+        const total = due.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+        return {
+          title: 'מי לא שילם',
+          summary: due.length
+            ? `${due.length === 1 ? 'תשלום אחד ממתין' : `${due.length} תשלומים ממתינים`} · ${ILS(total)} לגבייה`
+            : undefined,
+          empty: 'הכול שולם — אין תשלומים פתוחים 🎉',
+          rows: due.map((x) => {
+            const l = byLease.get(x.lease_id);
+            return {
+              id: x.id,
+              title: l?.properties?.name ?? 'נכס',
+              subtitle: `${l?.tenants?.full_name ?? ''} · לתשלום ${heDate(x.due_date)}`,
+              value: ILS(x.amount),
+              tag: 'ממתין לתשלום',
+              tagClass: 'text-danger',
+              href: l ? `/properties/${l.property_id}` : undefined,
+            };
+          }),
+        };
+      }
+
       case 'ending': {
         const soon = active
           .filter((l) => daysUntil(l.end_date) <= 180)
@@ -476,6 +509,7 @@ export default function AssistantChat() {
             { id: 's4', title: 'הכנסה שנתית', subtitle: 'שכירות × 12', value: ILS(monthly * 12) },
             { id: 's5', title: 'תשואה ברוטו', subtitle: 'שנתית, מהשווי הנוכחי', value: yieldPct === null ? '—' : `${yieldPct.toFixed(1)}%` },
             { id: 's6', title: 'חוזים שמסתיימים בקרוב', subtitle: 'בתוך 90 יום', value: String(ending90), href: '/leases' },
+            { id: 's7', title: 'תשלומים ממתינים לגבייה', subtitle: 'שכירות שטרם שולמה', value: String((payments ?? []).filter((x) => !x.paid && x.due_date <= todayIso).length) },
           ],
         };
       }

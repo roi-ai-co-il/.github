@@ -148,7 +148,7 @@ export default function LeaseForm({
       }
 
       // 3. The new lease.
-      const { error: lErr } = await supabase.from('leases').insert({
+      const { data: newLease, error: lErr } = await supabase.from('leases').insert({
         property_id: propertyId,
         tenant_id: finalTenantId,
         start_date: startDate,
@@ -159,8 +159,25 @@ export default function LeaseForm({
         linked_to_cpi: cpi,
         status: 'active',
         notes: notes.trim() || null,
-      });
-      if (lErr) throw new Error('שמירת החוזה נכשלה — נסה שוב');
+      }).select('id').single();
+      if (lErr || !newLease) throw new Error('שמירת החוזה נכשלה — נסה שוב');
+
+      // The monthly payment schedule is born with the lease — one row per
+      // due month, so collection tracking needs no setup.
+      const schedule: { lease_id: string; due_date: string; amount: number }[] = [];
+      const end = new Date(endDate);
+      const startD = new Date(startDate);
+      const dueDay = Math.min(Number(paymentDay), 28);
+      let d = new Date(startD.getFullYear(), startD.getMonth(), dueDay);
+      if (d < startD) d.setMonth(d.getMonth() + 1);
+      while (d <= end && schedule.length < 36) {
+        schedule.push({ lease_id: newLease.id, due_date: d.toISOString().slice(0, 10), amount: Number(rent) });
+        d = new Date(d.getFullYear(), d.getMonth() + 1, dueDay);
+      }
+      if (schedule.length) {
+        const { error: sErr } = await supabase.from('lease_payments').insert(schedule);
+        if (sErr) toast('החוזה נשמר, אבל יצירת לוח התשלומים נכשלה');
+      }
 
       // 4. The property is now rented.
       const { error: pErr } = await supabase.from('properties').update({ status: 'rented' }).eq('id', propertyId);
