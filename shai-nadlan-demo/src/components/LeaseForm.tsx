@@ -46,12 +46,14 @@ export default function LeaseForm({
   tenants,
   activeLease,
   renew,
+  askingRent,
 }: {
   propertyId: string;
   propertyName: string;
   tenants: TenantOption[];
   activeLease: PrevLease | null;
   renew: boolean;
+  askingRent: number | null;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -64,7 +66,7 @@ export default function LeaseForm({
   const [tenantSearch, setTenantSearch] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [rent, setRent] = useState(renew && activeLease ? String(activeLease.monthly_rent) : '');
+  const [rent, setRent] = useState(renew && activeLease ? String(activeLease.monthly_rent) : askingRent != null ? String(askingRent) : '');
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(isoPlusYear(today));
   const [paymentDay, setPaymentDay] = useState('1');
@@ -297,6 +299,9 @@ export default function LeaseForm({
             <label htmlFor="rent" className={labelCls}>שכר דירה חודשי (₪) *</label>
             <input id="rent" inputMode="numeric" className={inputCls} value={rent} onChange={(e) => setRent(e.target.value)} placeholder="8,500" />
             {rentDelta && <p className={`text-[12px] font-medium mt-1.5 mr-1 ${rentDelta.tone}`}>{rentDelta.text}</p>}
+            {!activeLease && askingRent != null && Number(rent) === askingRent && (
+              <p className="text-[12px] text-label-tertiary mt-1.5 mr-1">מולא לפי המחיר המבוקש שהגדרת לנכס</p>
+            )}
             {fieldErrors.rent && <p className="text-[13px] text-danger font-medium mt-1.5 mr-1">{fieldErrors.rent}</p>}
           </div>
           <div>
@@ -309,7 +314,7 @@ export default function LeaseForm({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="startDate" className={labelCls}>תחילת חוזה *</label>
-            <input id="startDate" type="date" className={inputCls} value={startDate}
+            <input id="startDate" type="date" dir="ltr" className={`${inputCls} text-left`} value={startDate}
               onChange={(e) => {
                 const v = e.target.value;
                 setStartDate(v);
@@ -319,7 +324,7 @@ export default function LeaseForm({
           </div>
           <div>
             <label htmlFor="endDate" className={labelCls}>סיום חוזה *</label>
-            <input id="endDate" type="date" className={inputCls} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            <input id="endDate" type="date" dir="ltr" className={`${inputCls} text-left`} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             {fieldErrors.endDate && <p className="text-[13px] text-danger font-medium mt-1.5 mr-1">{fieldErrors.endDate}</p>}
           </div>
         </div>

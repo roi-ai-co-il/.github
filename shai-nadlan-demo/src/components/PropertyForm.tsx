@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronRight, Loader2, Save } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { PROPERTY_TYPES, PROPERTY_STATUS } from '@/lib/domain';
+import ChipSelect from '@/components/ChipSelect';
 import { useToast } from '@/components/Toast';
 
 const inputCls =
@@ -19,6 +20,7 @@ export interface PropertyInitial {
   city: string;
   property_type: string;
   status: string;
+  asking_rent: number | null;
   rooms: number | null;
   area_sqm: number | null;
   floor_no: number | null;
@@ -51,6 +53,7 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
     purchase_date: initial?.purchase_date ?? '',
     current_value: initial?.current_value != null ? String(initial.current_value) : '',
     notes: initial?.notes ?? '',
+    asking_rent: initial?.asking_rent != null ? String(initial.asking_rent) : '',
   });
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -60,7 +63,7 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
     if (!form.name.trim()) errs.name = 'שם הנכס חובה';
     if (!form.address.trim()) errs.address = 'כתובת חובה';
     if (!form.city.trim()) errs.city = 'עיר חובה';
-    for (const k of ['rooms', 'area_sqm', 'floor_no', 'purchase_price', 'current_value'] as const) {
+    for (const k of ['rooms', 'area_sqm', 'floor_no', 'purchase_price', 'current_value', 'asking_rent'] as const) {
       if (form[k] !== '' && isNaN(Number(form[k]))) errs[k] = 'ערך מספרי בלבד';
     }
     setFieldErrors(errs);
@@ -87,6 +90,7 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
       purchase_date: form.purchase_date === '' ? null : form.purchase_date,
       current_value: form.current_value === '' ? null : Number(form.current_value),
       notes: form.notes.trim() || null,
+      asking_rent: form.asking_rent === '' ? null : Number(form.asking_rent),
     };
 
     if (editing) {
@@ -148,23 +152,25 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="property_type" className={labelCls}>סוג נכס</label>
-            <select id="property_type" className={inputCls} value={form.property_type} onChange={(e) => set('property_type', e.target.value)}>
-              {Object.entries(PROPERTY_TYPES).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="status" className={labelCls}>סטטוס</label>
-            <select id="status" className={inputCls} value={form.status} onChange={(e) => set('status', e.target.value)}>
-              {Object.entries(PROPERTY_STATUS).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
-          </div>
+        <ChipSelect
+          label="סוג נכס"
+          value={form.property_type}
+          onChange={(v) => set('property_type', v)}
+          options={Object.entries(PROPERTY_TYPES).map(([k, v]) => ({ value: k, label: v }))}
+        />
+
+        <ChipSelect
+          label="סטטוס"
+          value={form.status}
+          onChange={(v) => set('status', v)}
+          options={Object.entries(PROPERTY_STATUS).map(([k, v]) => ({ value: k, label: v.label, dot: v.dot }))}
+        />
+
+        <div>
+          <label htmlFor="asking_rent" className={labelCls}>שכר דירה מבוקש (₪ לחודש)</label>
+          <input id="asking_rent" inputMode="numeric" className={inputCls} value={form.asking_rent} onChange={(e) => set('asking_rent', e.target.value)} placeholder="כמה תרצה שישלמו על הנכס" />
+          <p className="text-[12px] text-label-tertiary mt-1.5 mr-1">יוצג כשהנכס פנוי, וימולא אוטומטית כשתשכיר אותו</p>
+          {fieldErrors.asking_rent && <p className="text-[13px] text-danger font-medium mt-1.5 mr-1">{fieldErrors.asking_rent}</p>}
         </div>
 
         <div className="grid grid-cols-3 gap-4">
@@ -193,7 +199,7 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
           </div>
           <div>
             <label htmlFor="purchase_date" className={labelCls}>תאריך רכישה</label>
-            <input id="purchase_date" type="date" className={inputCls} value={form.purchase_date} onChange={(e) => set('purchase_date', e.target.value)} />
+            <input id="purchase_date" type="date" dir="ltr" className={`${inputCls} text-left`} value={form.purchase_date} onChange={(e) => set('purchase_date', e.target.value)} />
           </div>
           <div>
             <label htmlFor="current_value" className={labelCls}>שווי נוכחי (₪)</label>

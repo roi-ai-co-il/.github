@@ -19,6 +19,7 @@ type PropertyRow = {
   area_sqm: number | null;
   status: string;
   current_value: number | null;
+  asking_rent: number | null;
   cover_image_url: string | null;
   leases: { monthly_rent: number; end_date: string; status: string; tenant: { full_name: string; phone: string | null } | null }[];
 };
@@ -170,6 +171,13 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
                         <p className="text-[11px] text-label-tertiary">שכירות</p>
                         <p className="text-[15px] font-semibold text-accent whitespace-nowrap">
                           {ILS(activeLease.monthly_rent)}
+                        </p>
+                      </div>
+                    ) : p.asking_rent != null ? (
+                      <div className="text-left">
+                        <p className="text-[11px] text-label-tertiary">מבוקש</p>
+                        <p className="text-[15px] font-semibold text-warning whitespace-nowrap">
+                          {ILS(p.asking_rent)}
                         </p>
                       </div>
                     ) : (

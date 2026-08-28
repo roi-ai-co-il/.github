@@ -18,7 +18,7 @@ export default async function NewLeasePage({
   const supabase = await createClient();
 
   const [{ data: property }, { data: tenants }, { data: active }] = await Promise.all([
-    supabase.from('properties').select('id, name').eq('id', id).maybeSingle(),
+    supabase.from('properties').select('id, name, asking_rent').eq('id', id).maybeSingle(),
     supabase.from('tenants').select('id, full_name, phone').order('full_name'),
     supabase
       .from('leases')
@@ -50,6 +50,7 @@ export default async function NewLeasePage({
       tenants={tenants ?? []}
       activeLease={activeLease}
       renew={renew === '1'}
+      askingRent={property.asking_rent != null ? Number(property.asking_rent) : null}
     />
   );
 }

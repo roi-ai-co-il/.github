@@ -58,6 +58,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
     { icon: CalendarDays, label: 'תאריך רכישה', value: property.purchase_date ? heDate(property.purchase_date) : null },
     { icon: TrendingUp, label: 'שווי נוכחי', value: property.current_value != null ? ILS(property.current_value) : null },
     { icon: TrendingUp, label: 'עליית ערך', value: appreciation != null ? `${appreciation > 0 ? '+' : ''}${appreciation.toFixed(0)}%` : null },
+    { icon: Wallet, label: 'שכ״ד מבוקש', value: property.asking_rent != null ? ILS(property.asking_rent) : null },
   ].filter((f) => f.value != null);
 
   return (

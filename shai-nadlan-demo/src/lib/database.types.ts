@@ -143,6 +143,7 @@ export type Database = {
         Row: {
           address: string
           area_sqm: number | null
+          asking_rent: number | null
           city: string
           cover_image_url: string | null
           created_at: string
@@ -162,6 +163,7 @@ export type Database = {
         Insert: {
           address: string
           area_sqm?: number | null
+          asking_rent?: number | null
           city: string
           cover_image_url?: string | null
           created_at?: string
@@ -181,6 +183,7 @@ export type Database = {
         Update: {
           address?: string
           area_sqm?: number | null
+          asking_rent?: number | null
           city?: string
           cover_image_url?: string | null
           created_at?: string
