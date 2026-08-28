@@ -16,6 +16,12 @@ export const metadata: Metadata = {
   },
   description: 'מערכת ניהול תיק הנדל״ן של שי עובדיה — נכסים, שוכרים וחוזים במקום אחד.',
   robots: { index: false, follow: false },
+  // The home-screen identity: short label under the icon, standalone app feel.
+  appleWebApp: {
+    title: 'שי עובדיה',
+    capable: true,
+    statusBarStyle: 'default',
+  },
 };
 
 export const viewport: Viewport = {
