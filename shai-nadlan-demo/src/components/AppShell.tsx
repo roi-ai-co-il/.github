@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
+import AssistantChat from '@/components/AssistantChat';
 import PullToRefresh from '@/components/PullToRefresh';
 import { ToastProvider } from '@/components/Toast';
 
@@ -204,6 +205,8 @@ export default function AppShell({ children, email, firstName }: {
             </Link>
           </nav>
         </div>
+
+        <AssistantChat />
       </div>
     </ToastProvider>
   );

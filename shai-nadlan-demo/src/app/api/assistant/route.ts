@@ -1,0 +1,389 @@
+import { NextResponse } from 'next/server';
+import Anthropic from '@anthropic-ai/sdk';
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
+
+// Two sequential model calls can pass 10s; Vercel Hobby allows up to 60.
+export const maxDuration = 60;
+
+const CLAUDE_MODEL = 'claude-opus-5';
+const GEMINI_MODEL = 'gemini-2.5-flash';
+
+/* ── Query-plan schema ─────────────────────────────────
+   The model must answer inside this shape — a validated plan, never
+   free-form JSON we'd have to regex out of prose. Whatever the provider,
+   the plan only counts if it parses against this. */
+const FilterSchema = z.object({
+  column: z.string(),
+  op: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 'is']),
+  value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+});
+
+const QuerySchema = z.object({
+  table: z.enum(['properties', 'tenants', 'leases']),
+  select: z.array(z.string()),
+  filters: z.array(FilterSchema),
+  order: z.union([
+    z.object({ column: z.string(), ascending: z.boolean() }),
+    z.null(),
+  ]),
+  limit: z.union([z.number(), z.null()]),
+});
+
+const PlanSchema = z.object({
+  intent: z.enum(['query', 'unknown']),
+  queries: z.array(QuerySchema),
+});
+
+type Plan = z.infer<typeof PlanSchema>;
+
+/* The same plan shape for Gemini's structured output. Gemini's schema
+   dialect has no unions, so filter values arrive as nullable strings —
+   PostgREST parses numeric strings fine and PlanSchema accepts them. */
+const GEMINI_PLAN_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    intent: { type: 'STRING', enum: ['query', 'unknown'] },
+    queries: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          table: { type: 'STRING', enum: ['properties', 'tenants', 'leases'] },
+          select: { type: 'ARRAY', items: { type: 'STRING' } },
+          filters: {
+            type: 'ARRAY',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                column: { type: 'STRING' },
+                op: { type: 'STRING', enum: ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 'is'] },
+                value: { type: 'STRING', nullable: true },
+              },
+              required: ['column', 'op', 'value'],
+            },
+          },
+          order: {
+            type: 'OBJECT',
+            nullable: true,
+            properties: {
+              column: { type: 'STRING' },
+              ascending: { type: 'BOOLEAN' },
+            },
+            required: ['column', 'ascending'],
+          },
+          limit: { type: 'INTEGER', nullable: true },
+        },
+        required: ['table', 'select', 'filters', 'order', 'limit'],
+      },
+    },
+  },
+  required: ['intent', 'queries'],
+} as const;
+
+/* ── What the planner may touch ────────────────────────
+   RLS already scopes every row to the signed-in owner; the allowlist is
+   defense in depth so a crafted prompt cannot reach a column we never
+   meant the assistant to read. */
+const ALLOWED_COLUMNS: Record<string, string[]> = {
+  properties: [
+    'id', 'name', 'address', 'city', 'property_type', 'rooms', 'area_sqm',
+    'floor_no', 'purchase_price', 'purchase_date', 'current_value', 'status',
+    'notes', 'created_at',
+  ],
+  tenants: ['id', 'full_name', 'phone', 'email', 'notes', 'created_at'],
+  leases: [
+    'id', 'property_id', 'tenant_id', 'start_date', 'end_date', 'monthly_rent',
+    'payment_day', 'deposit', 'linked_to_cpi', 'status', 'notes', 'created_at',
+  ],
+};
+
+/* Closed vocabularies. A filter carrying a value outside them (e.g. a
+   Hebrew word instead of the stored enum) would return an empty set that
+   reads as a confident "none" — treat it as could-not-read instead. */
+const ENUM_COLUMNS: Record<string, Record<string, string[]>> = {
+  properties: {
+    status: ['rented', 'vacant', 'renovation', 'for_sale'],
+    property_type: ['apartment', 'penthouse', 'garden_apartment', 'house', 'commercial', 'office', 'storage', 'parking'],
+  },
+  leases: {
+    status: ['active', 'ended'],
+  },
+};
+
+function validEnumFilters(table: string, filters: { column: string; op: string; value: unknown }[]): boolean {
+  const enums = ENUM_COLUMNS[table];
+  if (!enums) return true;
+  return filters.every((f) => {
+    const vocab = enums[f.column];
+    if (!vocab || (f.op !== 'eq' && f.op !== 'neq')) return true;
+    return typeof f.value === 'string' && vocab.includes(f.value);
+  });
+}
+
+const MAX_LIMIT = 100;
+
+function validColumns(table: string, columns: string[]): boolean {
+  const allowed = ALLOWED_COLUMNS[table];
+  if (!allowed) return false;
+  return columns.every((raw) => {
+    const col = raw.trim();
+    // Embedded relation, e.g. properties(name,city) inside a leases query.
+    const rel = col.match(/^(\w+)\(([\w\s,]+)\)$/);
+    if (rel) {
+      const relCols = rel[2].split(',').map((c) => c.trim());
+      return rel[1] in ALLOWED_COLUMNS && relCols.every((c) => ALLOWED_COLUMNS[rel[1]].includes(c));
+    }
+    return allowed.includes(col);
+  });
+}
+
+const SCHEMA_PROMPT = `You are the AI assistant inside a Hebrew real-estate portfolio app owned by שי עובדיה.
+You translate a Hebrew question about the portfolio into a query plan. Respond only through the given schema.
+
+DATABASE (PostgREST-style, all rows belong to the signed-in owner):
+- properties: id, name, address, city, property_type (apartment/penthouse/garden_apartment/house/commercial/office/storage/parking), rooms, area_sqm, floor_no, purchase_price, purchase_date, current_value, status (rented/vacant/renovation/for_sale), notes, created_at
+- tenants: id, full_name, phone, email, notes, created_at
+- leases: id, property_id, tenant_id, start_date, end_date, monthly_rent, payment_day, deposit, linked_to_cpi, status (active/ended), notes, created_at
+
+RULES:
+- select is an array of column names. In a leases query you may embed the related rows as "properties(name,city)" and "tenants(full_name,phone)".
+- Filter values for status and property_type MUST be the exact English enum values listed above — never Hebrew words. Hebrew mapping: מושכר=rented, פנוי=vacant, בשיפוץ=renovation, למכירה=for_sale, פעיל=active, הסתיים=ended.
+- Dates are ISO YYYY-MM-DD strings. For "soon/הקרוב" questions filter end_date between today and the horizon the user implies (default 6 months).
+- For sums/averages (portfolio value, total rent) select the numeric columns and enough context columns; the answer layer does the arithmetic.
+- Prefer few queries (max 3). limit null means default.
+- If the question is not about this portfolio data, or you cannot map it, use intent "unknown" with an empty queries array.`;
+
+const FORMAT_PROMPT = `You are a Hebrew-speaking assistant inside a real-estate portfolio app.
+Format the fetched data into a clear, concise Hebrew answer to the user's question.
+- Currency is ₪ with thousands commas (e.g. ₪12,500). Compute sums/averages yourself when asked.
+- Short sentences; a short list when several items are returned.
+- If a query result is empty, say לא נמצאו נתונים מתאימים — never invent values.
+- If the data block says a query FAILED, say you could not read that data right now; do not treat failure as "no results".
+- Plain text only — no markdown, no asterisks, no bold. Bullet lists use the character • .
+- No technical terms (SQL, tables, JSON). Answer directly, no intro.`;
+
+type HistoryItem = { role: string; content: string };
+type Turn = { role: 'user' | 'assistant'; content: string };
+
+/* ── Providers ─────────────────────────────────────────
+   Claude when an Anthropic key is configured; Gemini otherwise.
+   Both return null for "could not produce a usable result" — that state
+   is never silently converted into an empty plan or an invented answer. */
+
+async function claudePlan(client: Anthropic, turns: Turn[]): Promise<Plan | null> {
+  const resp = await client.messages.parse({
+    model: CLAUDE_MODEL,
+    max_tokens: 4096,
+    output_config: { effort: 'low', format: zodOutputFormat(PlanSchema) },
+    system: SCHEMA_PROMPT,
+    messages: turns,
+  });
+  if (resp.stop_reason === 'refusal') return null;
+  return resp.parsed_output ?? null;
+}
+
+async function claudeAnswer(client: Anthropic, content: string): Promise<string | null> {
+  const resp = await client.messages.create({
+    model: CLAUDE_MODEL,
+    max_tokens: 4096,
+    output_config: { effort: 'low' },
+    system: FORMAT_PROMPT,
+    messages: [{ role: 'user', content }],
+  });
+  if (resp.stop_reason === 'refusal') return null;
+  const text = resp.content
+    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .map((b) => b.text)
+    .join('')
+    .trim();
+  return text || null;
+}
+
+async function geminiCall(
+  apiKey: string,
+  system: string,
+  turns: Turn[],
+  jsonSchema?: unknown,
+): Promise<string | null> {
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: turns.map((t) => ({
+          role: t.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: t.content }],
+        })),
+        generationConfig: jsonSchema
+          ? { responseMimeType: 'application/json', responseSchema: jsonSchema }
+          : {},
+      }),
+    },
+  );
+  if (!resp.ok) {
+    console.error('gemini call failed:', resp.status);
+    return null;
+  }
+  const json = await resp.json();
+  const parts: { text?: string }[] = json?.candidates?.[0]?.content?.parts ?? [];
+  const text = parts.map((p) => p.text ?? '').join('').trim();
+  return text || null;
+}
+
+async function geminiPlan(apiKey: string, turns: Turn[]): Promise<Plan | null> {
+  const text = await geminiCall(apiKey, SCHEMA_PROMPT, turns, GEMINI_PLAN_SCHEMA);
+  if (!text) return null;
+  try {
+    const parsed = PlanSchema.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/* Tiny per-instance throttle — enough to stop a runaway client loop. */
+const hits = new Map<string, number[]>();
+function throttled(userId: string): boolean {
+  const now = Date.now();
+  const windowStart = now - 60_000;
+  const recent = (hits.get(userId) ?? []).filter((t) => t > windowStart);
+  recent.push(now);
+  hits.set(userId, recent);
+  return recent.length > 15;
+}
+
+export async function POST(req: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  if (throttled(user.id)) {
+    return NextResponse.json({ answer: 'רגע, לאט יותר — נסה שוב בעוד דקה.' });
+  }
+
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!anthropicKey && !geminiKey) {
+    return NextResponse.json({ answer: 'העוזר החכם עדיין לא הופעל בסביבה הזו.' });
+  }
+  const anthropic = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : null;
+
+  let body: { message?: string; history?: HistoryItem[] };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'bad request' }, { status: 400 });
+  }
+  const message = (body.message ?? '').trim().slice(0, 1000);
+  if (!message) return NextResponse.json({ error: 'bad request' }, { status: 400 });
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  try {
+    /* ── Phase A: plan ── */
+    const turns: Turn[] = [];
+    for (const h of (body.history ?? []).slice(-10)) {
+      turns.push({
+        role: h.role === 'user' ? 'user' : 'assistant',
+        content: String(h.content).slice(0, 2000),
+      });
+    }
+    turns.push({ role: 'user', content: `(התאריך היום: ${today})\n${message}` });
+
+    const plan = anthropic
+      ? await claudePlan(anthropic, turns)
+      : await geminiPlan(geminiKey!, turns);
+
+    if (!plan) {
+      return NextResponse.json({
+        answer: 'לא הצלחתי להבין את השאלה. נסה למשל: "אילו חוזים מסתיימים בקרוב?" או "מה שווי התיק?"',
+      });
+    }
+
+    console.log('assistant plan:', JSON.stringify(plan));
+
+    if (plan.intent === 'unknown' || plan.queries.length === 0) {
+      return NextResponse.json({
+        answer: 'אני עונה על שאלות על תיק הנכסים — נכסים, שוכרים, חוזים ותשלומים. נסה למשל: "אילו נכסים פנויים?"',
+      });
+    }
+
+    /* ── Phase B: execute, per query, with its own failed state ── */
+    const results: { table: string; data?: unknown[]; failed?: true }[] = [];
+    for (const q of plan.queries.slice(0, 3)) {
+      const selectCols = q.select.length ? q.select : ['id'];
+      if (
+        !validColumns(q.table, selectCols) ||
+        !validColumns(q.table, q.filters.map((f) => f.column)) ||
+        !validEnumFilters(q.table, q.filters) ||
+        (q.order && !validColumns(q.table, [q.order.column]))
+      ) {
+        console.error(`assistant plan rejected on ${q.table}:`, JSON.stringify(q.filters));
+        results.push({ table: q.table, failed: true });
+        continue;
+      }
+
+      let query = supabase.from(q.table).select(selectCols.join(','));
+      for (const f of q.filters) {
+        const v = f.value;
+        if (v === null || f.op === 'is') {
+          query = query.is(f.column, v === null || v === 'null' ? null : (v as boolean));
+          continue;
+        }
+        switch (f.op) {
+          case 'eq': query = query.eq(f.column, v); break;
+          case 'neq': query = query.neq(f.column, v); break;
+          case 'gt': query = query.gt(f.column, v); break;
+          case 'gte': query = query.gte(f.column, v); break;
+          case 'lt': query = query.lt(f.column, v); break;
+          case 'lte': query = query.lte(f.column, v); break;
+          case 'like': query = query.like(f.column, String(v)); break;
+          case 'ilike': query = query.ilike(f.column, String(v)); break;
+        }
+      }
+      if (q.order) query = query.order(q.order.column, { ascending: q.order.ascending });
+      const limit = typeof q.limit === 'number' && Number.isFinite(q.limit)
+        ? Math.min(Math.max(1, Math.floor(q.limit)), MAX_LIMIT)
+        : MAX_LIMIT;
+      query = query.limit(limit);
+
+      const { data, error } = await query;
+      if (error) {
+        console.error(`assistant query failed on ${q.table}:`, error.message);
+        results.push({ table: q.table, failed: true });
+      } else {
+        results.push({ table: q.table, data: data ?? [] });
+      }
+    }
+
+    if (results.every((r) => r.failed)) {
+      return NextResponse.json({ answer: 'לא הצלחתי לקרוא את הנתונים כרגע. נסה שוב עוד רגע.' });
+    }
+
+    /* ── Phase C: answer in Hebrew ── */
+    const dataBlock = results
+      .map((r) => (r.failed
+        ? `${r.table}: FAILED (could not be read)`
+        : `${r.table}:\n${JSON.stringify(r.data)}`))
+      .join('\n\n');
+
+    const question = `התאריך היום: ${today}\nהשאלה: ${message}\n\nהנתונים:\n${dataBlock}`;
+    const answer = anthropic
+      ? await claudeAnswer(anthropic, question)
+      : await geminiCall(geminiKey!, FORMAT_PROMPT, [{ role: 'user', content: question }]);
+
+    if (!answer) {
+      return NextResponse.json({ answer: 'לא הצלחתי לנסח תשובה לשאלה הזו. נסה לנסח אחרת.' });
+    }
+
+    // Raw rows never leave the server — only the formatted Hebrew answer.
+    return NextResponse.json({ answer });
+  } catch (err) {
+    console.error('assistant error:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ answer: 'אירעה שגיאה. נסה שוב.' });
+  }
+}
