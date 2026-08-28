@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Sparkles, X, Search, ChevronRight, Phone, User, Building2, FileText,
-  LayoutGrid, Plus, Wallet, Landmark, KeyRound, CalendarClock, PieChart,
+  Sparkles, X, Search, ChevronRight, ChevronLeft, Phone, User, Building2, FileText,
+  LayoutGrid, Plus, Wallet, Landmark, KeyRound, CalendarClock, PieChart, Send,
+  MessageCircle, History,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { ILS, heDate, daysUntil } from '@/lib/format';
+import { ILS, heDate, daysUntil, waLink } from '@/lib/format';
 import { PROPERTY_TYPES, PROPERTY_STATUS, leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
 
 // ─────────────────────────────────────────────────────────────
@@ -49,6 +50,23 @@ function scoreText(text: string, query: string): number {
   return score;
 }
 
+/** Emphasize the matched part of a result title. Best-effort: a raw
+    case-insensitive hit is emphasized; when only the folded forms match,
+    the title renders plain rather than mis-highlighted. */
+function Highlight({ text, query }: { text: string; query: string }) {
+  const q = query.trim();
+  if (q.length < 2) return <>{text}</>;
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)}
+      <span className="text-accent font-semibold">{text.slice(i, i + q.length)}</span>
+      {text.slice(i + q.length)}
+    </>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────
 // Data shapes the panel works with
 // ─────────────────────────────────────────────────────────────
@@ -67,7 +85,7 @@ interface TenantRow { id: string; full_name: string; phone: string | null; email
 
 interface ResultRow {
   id: string;
-  title: string;
+  title: React.ReactNode;
   subtitle?: string;
   value?: string;
   tag?: string;
@@ -92,6 +110,30 @@ interface ActionDef {
   href?: string;
 }
 
+interface ChatMessage { role: 'user' | 'assistant'; content: string }
+
+// ─────────────────────────────────────────────────────────────
+// Recents — a lightweight, per-browser memory of what was used.
+// ─────────────────────────────────────────────────────────────
+interface Recent { kind: 'property' | 'tenant' | 'question'; id?: string; title: string }
+const RECENTS_KEY = 'shai-assistant-recents';
+
+function readRecents(): Recent[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENTS_KEY) ?? '[]');
+    return Array.isArray(v) ? v.slice(0, 5) : [];
+  } catch { return []; }
+}
+
+function pushRecent(r: Recent): Recent[] {
+  try {
+    const rest = readRecents().filter((x) => !(x.kind === r.kind && (x.id ?? x.title) === (r.id ?? r.title)));
+    const next = [r, ...rest].slice(0, 5);
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
+    return next;
+  } catch { return []; }
+}
+
 // ─────────────────────────────────────────────────────────────
 // What the assistant can do — answers are computed locally from
 // live data the moment they're asked. No model, no waiting.
@@ -111,6 +153,28 @@ const ACTIONS: ActionDef[] = [
 
 const LOAD_ERROR = 'לא הצלחתי לטעון את הנתונים. בדוק את החיבור ונסה שוב.';
 const STILL_LOADING = 'עוד טוען נתונים...';
+const AI_ERROR = 'אירעה שגיאה. נסה שוב.';
+
+/** The wait is blind without it: name the stage so 5 seconds read as work. */
+function AiLoading() {
+  const [stage, setStage] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setStage(1), 2600);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <div className="flex justify-end">
+      <div className="bg-surface-sunken border border-separator rounded-2xl px-4 py-2.5 flex items-center gap-2.5">
+        <div className="flex gap-1">
+          {[0, 150, 300].map((d) => (
+            <span key={d} className="w-1.5 h-1.5 rounded-full bg-label-tertiary animate-bounce" style={{ animationDelay: `${d}ms` }} />
+          ))}
+        </div>
+        <span className="text-[12px] text-label-secondary">{stage === 0 ? 'קורא את הנתונים…' : 'מנסח תשובה…'}</span>
+      </div>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────
 export default function AssistantChat() {
@@ -118,8 +182,10 @@ export default function AssistantChat() {
   const [query, setQuery] = useState('');
   const [answer, setAnswer] = useState<AnswerView | null>(null);
   const [tenant, setTenant] = useState<TenantRow | null>(null);
-  const [ai, setAi] = useState<{ question: string; answer: string | null; loading: boolean } | null>(null);
+  const [aiChat, setAiChat] = useState<{ messages: ChatMessage[]; loading: boolean } | null>(null);
   const [fabHidden, setFabHidden] = useState(false);
+  const [compact, setCompact] = useState(false);
+  const [recents, setRecents] = useState<Recent[]>([]);
 
   const [properties, setProperties] = useState<PropertyRow[] | null>(null);
   const [leases, setLeases] = useState<LeaseRow[] | null>(null);
@@ -127,7 +193,22 @@ export default function AssistantChat() {
   const [dataFailed, setDataFailed] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const aiInputRef = useRef<HTMLInputElement>(null);
+  const aiScrollRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // ⌘K / Ctrl+K toggles the panel from anywhere in the app.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Mobile: the star floats over list content — duck it while scrolling
   // down, bring it back on scroll-up or after a short idle.
@@ -155,6 +236,7 @@ export default function AssistantChat() {
     if (!open) return;
     let cancelled = false;
     setDataFailed(false);
+    setRecents(readRecents());
     const supabase = createClient();
     (async () => {
       const [p, l, t] = await Promise.all([
@@ -181,26 +263,65 @@ export default function AssistantChat() {
     // on-screen keyboard would cover half the panel the moment it opens.
     const wantsFocus = window.matchMedia('(pointer: fine)').matches;
     const t = wantsFocus ? setTimeout(() => inputRef.current?.focus(), 60) : undefined;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { close(); return; }
+      // Keep keyboard focus inside the dialog.
+      if (e.key === 'Tab') {
+        const panel = panelRef.current;
+        if (!panel) return;
+        const els = panel.querySelectorAll<HTMLElement>('button, a[href], input, [tabindex]:not([tabindex="-1"])');
+        if (!els.length) return;
+        const first = els[0];
+        const last = els[els.length - 1];
+        const active = document.activeElement;
+        if (!panel.contains(active)) { e.preventDefault(); first.focus(); }
+        else if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+      }
+    };
     window.addEventListener('keydown', onKey);
     return () => { if (t) clearTimeout(t); window.removeEventListener('keydown', onKey); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Keep the newest chat message in view.
+  useEffect(() => {
+    if (aiScrollRef.current) aiScrollRef.current.scrollTop = aiScrollRef.current.scrollHeight;
+  }, [aiChat]);
 
   const close = () => {
     setOpen(false);
     setQuery('');
     setAnswer(null);
     setTenant(null);
-    setAi(null);
+    setAiChat(null);
+    setCompact(false);
   };
 
-  const backHome = () => { setAnswer(null); setTenant(null); setAi(null); };
+  const backHome = () => { setAnswer(null); setTenant(null); setAiChat(null); };
 
   const go = (href?: string) => {
     if (!href) return;
     router.push(href);
     close();
+  };
+
+  // Shrink the sheet while the on-screen keyboard is up, so results stay
+  // visible above it. Pointer, not width: a narrow laptop has no keyboard.
+  const isTouch = () => window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  const onFieldFocus = () => { if (isTouch()) setCompact(true); };
+  const onFieldBlur = () => setCompact(false);
+
+  const openProperty = (p: { id: string; name: string }) => {
+    setRecents(pushRecent({ kind: 'property', id: p.id, title: p.name }));
+    go(`/properties/${p.id}`);
+  };
+
+  const openTenant = (t: TenantRow) => {
+    setRecents(pushRecent({ kind: 'tenant', id: t.id, title: t.full_name }));
+    setTenant(t);
+    setAnswer(null);
+    setAiChat(null);
   };
 
   // ── Search ─────────────────────────────────────────────────
@@ -366,25 +487,41 @@ export default function AssistantChat() {
   const runAction = (a: ActionDef) => {
     if (a.href) { go(a.href); return; }
     const view = buildAnswer(a.id);
-    if (view) { setAnswer(view); setTenant(null); setAi(null); }
+    if (view) { setAnswer(view); setTenant(null); setAiChat(null); }
   };
 
-  // ── Free-text question → the AI route (fallback layer) ─────
+  // ── Free-text conversation → the AI route (fallback layer) ─
   const askAi = async (question: string) => {
-    setAi({ question, answer: null, loading: true });
+    const q = question.trim();
+    if (!q) return;
+    const prior = aiChat?.messages ?? [];
+    const msgs: ChatMessage[] = [...prior, { role: 'user', content: q }];
+    setAiChat({ messages: msgs, loading: true });
     setAnswer(null);
     setTenant(null);
+    setQuery('');
+    setRecents(pushRecent({ kind: 'question', title: q }));
     try {
       const res = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: question, history: [] }),
+        body: JSON.stringify({ message: q, history: prior.slice(-10) }),
       });
       const json = res.ok ? await res.json() : null;
-      setAi({ question, answer: json?.answer ?? 'אירעה שגיאה. נסה שוב.', loading: false });
+      setAiChat({ messages: [...msgs, { role: 'assistant', content: json?.answer ?? AI_ERROR }], loading: false });
     } catch {
-      setAi({ question, answer: 'אירעה שגיאה. נסה שוב.', loading: false });
+      setAiChat({ messages: [...msgs, { role: 'assistant', content: AI_ERROR }], loading: false });
     }
+  };
+
+  const runRecent = (r: Recent) => {
+    if (r.kind === 'property' && r.id) { go(`/properties/${r.id}`); return; }
+    if (r.kind === 'tenant' && r.id) {
+      const t = tenants?.find((x) => x.id === r.id);
+      if (t) openTenant(t);
+      return;
+    }
+    if (r.kind === 'question') askAi(r.title);
   };
 
   // ── Closed state: the star ─────────────────────────────────
@@ -393,7 +530,7 @@ export default function AssistantChat() {
       <button
         onClick={() => setOpen(true)}
         className={`press fixed bottom-[88px] left-4 md:bottom-8 md:left-8 z-40 w-12 h-12 rounded-full bg-accent text-white shadow-lg shadow-accent/30 flex items-center justify-center transition-all duration-300 ${fabHidden ? 'translate-y-24 opacity-0 pointer-events-none' : ''}`}
-        title="עוזר חכם"
+        title="עוזר חכם (⌘K)"
         aria-label="עוזר חכם"
       >
         <Sparkles size={21} strokeWidth={2.1} />
@@ -401,18 +538,27 @@ export default function AssistantChat() {
     );
   }
 
-  const showingHome = !answer && !tenant && !ai;
+  const showingHome = !answer && !tenant && !aiChat;
   const tenantLeases = tenant ? (leases ?? []).filter((l) => l.tenant_id === tenant.id) : [];
+  const viewKey = tenant ? `t-${tenant.id}` : answer ? `a-${answer.title}` : aiChat ? 'ai' : 'home';
 
   return (
     <>
-      {/* Backdrop above the tab bar, so a stray tap dismisses the sheet
-          instead of navigating underneath it. */}
+      {/* Mobile: dimmed backdrop above the tab bar, so a stray tap dismisses
+          the sheet instead of navigating underneath it. Desktop: an invisible
+          click-catcher — clicking anywhere outside closes the panel. */}
       <div className="fixed inset-0 z-[45] bg-black/40 animate-in md:hidden" onClick={close} aria-hidden />
+      <div className="fixed inset-0 z-[45] hidden md:block" onClick={close} aria-hidden />
 
       {/* Solid surface, deliberately not `material`: iOS Safari intermittently
           fails to paint children of backdrop-filter parents. */}
-      <div className="fixed inset-x-0 bottom-0 md:inset-x-auto md:bottom-8 md:left-8 z-50 w-full md:w-[400px] h-[76dvh] md:h-[560px] bg-canvas rounded-t-3xl md:rounded-3xl border border-separator shadow-2xl shadow-black/20 flex flex-col overflow-hidden animate-in">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="עוזר חכם"
+        className={`fixed inset-x-0 bottom-0 md:inset-x-auto md:bottom-8 md:left-8 z-50 w-full md:w-[400px] ${compact ? 'h-[55dvh]' : 'h-[76dvh]'} md:h-[560px] transition-[height] duration-300 bg-canvas rounded-t-3xl md:rounded-3xl border border-separator shadow-2xl shadow-black/20 flex flex-col overflow-hidden animate-in`}
+      >
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between px-4 h-[52px] edge-line">
           <div className="flex items-center gap-2 min-w-0">
@@ -425,7 +571,7 @@ export default function AssistantChat() {
               <Sparkles size={15} strokeWidth={2.2} />
             </span>
             <span className="text-[15px] font-semibold text-label truncate">
-              {tenant ? tenant.full_name : answer ? answer.title : ai ? 'עוזר חכם' : 'עוזר חכם'}
+              {tenant ? tenant.full_name : answer ? answer.title : 'עוזר חכם'}
             </span>
           </div>
           <button onClick={close} className="press touch-target rounded-full text-label-secondary hover:text-label" aria-label="סגירה">
@@ -433,199 +579,232 @@ export default function AssistantChat() {
           </button>
         </div>
 
-        {/* Search — always available */}
-        <div className="shrink-0 px-3 py-2.5 border-b border-separator">
-          <div className="relative">
-            <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-label-tertiary" />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); setAnswer(null); setTenant(null); setAi(null); }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && query.trim().length >= 2 && propertyMatches.length === 0 && tenantMatches.length === 0 && actionMatches.length === 0) {
-                  askAi(query.trim());
-                }
-              }}
-              placeholder="נכס, שוכר, או שאלה…"
-              dir="rtl"
-              className="w-full bg-surface-sunken border border-separator rounded-xl pr-9 pl-3 py-2.5 text-[14px] text-label outline-none focus:ring-2 focus:ring-accent/30 placeholder:text-label-tertiary"
-            />
+        {/* Search — hidden during an AI conversation, which has its own input */}
+        {!aiChat && (
+          <div className="shrink-0 px-3 py-2.5 border-b border-separator">
+            <div className="relative">
+              <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-label-tertiary" />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setAnswer(null); setTenant(null); }}
+                onFocus={onFieldFocus}
+                onBlur={onFieldBlur}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && query.trim().length >= 2 && propertyMatches.length === 0 && tenantMatches.length === 0 && actionMatches.length === 0) {
+                    askAi(query);
+                  }
+                }}
+                placeholder="נכס, שוכר, או שאלה…"
+                dir="rtl"
+                className="w-full bg-surface-sunken border border-separator rounded-xl pr-9 pl-12 py-2.5 text-[14px] text-label outline-none focus:ring-2 focus:ring-accent/30 placeholder:text-label-tertiary"
+              />
+              <kbd className="hidden md:inline absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-label-tertiary bg-fill rounded px-1.5 py-0.5" aria-hidden>esc</kbd>
+            </div>
+          </div>
+        )}
+
+        {/* Body */}
+        <div ref={aiScrollRef} className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+          <div key={viewKey} className="animate-in">
+            {/* ── Tenant detail ─────────────────────────── */}
+            {tenant && (
+              <div className="p-4 space-y-4">
+                <div className="bg-accent-tint border border-accent/15 rounded-2xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <User size={15} className="text-accent" />
+                    <span className="text-[14px] font-semibold text-label">{tenant.full_name}</span>
+                  </div>
+                  {tenant.phone && (
+                    <div className="flex items-center gap-2">
+                      <a href={`tel:${tenant.phone}`} className="press flex-1 flex items-center justify-center gap-1.5 text-[12px] font-medium text-accent bg-canvas border border-accent/20 rounded-xl py-2">
+                        <Phone size={13} /> חיוג
+                      </a>
+                      <a href={waLink(tenant.phone)} target="_blank" rel="noopener" className="press flex-1 flex items-center justify-center gap-1.5 text-[12px] font-medium text-success bg-canvas border border-success/25 rounded-xl py-2">
+                        <MessageCircle size={13} /> WhatsApp
+                      </a>
+                    </div>
+                  )}
+                  {tenantLeases.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-accent/15 text-[12px] text-label-secondary">
+                      {`סה"כ שכירות: ${ILS(tenantLeases.filter((l) => l.status === 'active').reduce((s, l) => s + (Number(l.monthly_rent) || 0), 0))} לחודש`}
+                    </div>
+                  )}
+                </div>
+
+                <Section title={`חוזים (${tenantLeases.length})`}>
+                  {tenantLeases.length === 0 ? (
+                    <p className="text-[12px] text-label-tertiary px-1 py-2">{loading ? STILL_LOADING : 'אין חוזים לשוכר הזה.'}</p>
+                  ) : (
+                    tenantLeases.map((l) => {
+                      const d = daysUntil(l.end_date);
+                      const u = URGENCY_STYLE[leaseUrgency(d)];
+                      return (
+                        <Row
+                          key={l.id}
+                          icon={<FileText size={15} className="text-accent" />}
+                          title={l.properties?.name ?? 'נכס'}
+                          subtitle={`${heDate(l.start_date)} – ${heDate(l.end_date)}`}
+                          value={ILS(l.monthly_rent)}
+                          tag={l.status === 'active' ? u.label(d) : 'הסתיים'}
+                          tagClass={l.status === 'active' ? u.text : 'text-label-tertiary'}
+                          onClick={() => go(`/properties/${l.property_id}`)}
+                        />
+                      );
+                    })
+                  )}
+                </Section>
+              </div>
+            )}
+
+            {/* ── Canned answer ─────────────────────────── */}
+            {answer && (
+              <div className="p-4 space-y-3">
+                {answer.summary && (
+                  <div className="bg-accent-tint border border-accent/15 rounded-2xl px-4 py-3 text-[13px] text-label">
+                    {answer.summary}
+                  </div>
+                )}
+                {answer.rows.length === 0 ? (
+                  <p className="text-center text-[13px] text-label-tertiary py-10">{answer.empty}</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {answer.rows.map((r) => (
+                      <Row key={r.id} title={r.title} subtitle={r.subtitle} value={r.value} tag={r.tag} tagClass={r.tagClass}
+                        onClick={r.href ? () => go(r.href) : undefined} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── AI conversation ───────────────────────── */}
+            {aiChat && (
+              <div className="p-4 space-y-2.5">
+                {aiChat.messages.map((m, i) => (
+                  <div key={i} className={`flex ${m.role === 'user' ? 'justify-start' : 'justify-end'}`}>
+                    <div className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-[14px] leading-relaxed whitespace-pre-wrap ${
+                      m.role === 'user' ? 'bg-accent text-white' : 'bg-surface-sunken text-label border border-separator'
+                    }`}>
+                      {m.content}
+                    </div>
+                  </div>
+                ))}
+                {aiChat.loading && <AiLoading />}
+              </div>
+            )}
+
+            {/* ── Home / search results ─────────────────── */}
+            {showingHome && (
+              <div className="p-4 space-y-4">
+                {loading && <p className="text-center text-[11px] text-label-tertiary py-1">{STILL_LOADING}</p>}
+                {dataFailed && (
+                  <p className="text-[12px] text-danger bg-danger-tint border border-danger/20 rounded-xl px-3 py-2.5">{LOAD_ERROR}</p>
+                )}
+
+                {!query && recents.length > 0 && (
+                  <Section title="אחרונים">
+                    {recents.map((r) => (
+                      <Row
+                        key={`${r.kind}-${r.id ?? r.title}`}
+                        icon={
+                          r.kind === 'property' ? <Building2 size={15} className="text-accent" />
+                          : r.kind === 'tenant' ? <User size={15} className="text-accent" />
+                          : <History size={15} className="text-label-tertiary" />
+                        }
+                        title={r.title}
+                        onClick={() => runRecent(r)}
+                      />
+                    ))}
+                  </Section>
+                )}
+
+                {query.trim().length >= 2 && (
+                  <>
+                    {propertyMatches.length > 0 && (
+                      <Section title={`נכסים (${propertyMatches.length})`}>
+                        {propertyMatches.map((p) => (
+                          <Row
+                            key={p.id}
+                            icon={<Building2 size={15} className="text-accent" />}
+                            title={<Highlight text={p.name} query={query} />}
+                            subtitle={`${p.address}, ${p.city}`}
+                            value={p.current_value ? ILS(p.current_value) : undefined}
+                            tag={PROPERTY_STATUS[p.status]?.label}
+                            tagClass={PROPERTY_STATUS[p.status]?.text}
+                            onClick={() => openProperty(p)}
+                          />
+                        ))}
+                      </Section>
+                    )}
+                    {tenantMatches.length > 0 && (
+                      <Section title={`שוכרים (${tenantMatches.length})`}>
+                        {tenantMatches.map((t) => (
+                          <Row
+                            key={t.id}
+                            icon={<User size={15} className="text-accent" />}
+                            title={<Highlight text={t.full_name} query={query} />}
+                            subtitle={t.phone ?? 'אין טלפון'}
+                            onClick={() => openTenant(t)}
+                          />
+                        ))}
+                      </Section>
+                    )}
+                  </>
+                )}
+
+                {actionMatches.some((a) => a.group === 'answers') && (
+                  <Section title="מה אפשר לשאול">
+                    {actionMatches.filter((a) => a.group === 'answers').map((a) => (
+                      <ActionRow key={a.id} action={a} onClick={() => runAction(a)} />
+                    ))}
+                  </Section>
+                )}
+
+                {actionMatches.some((a) => a.group === 'nav') && (
+                  <Section title="מעבר מהיר">
+                    {actionMatches.filter((a) => a.group === 'nav').map((a) => (
+                      <ActionRow key={a.id} action={a} onClick={() => runAction(a)} />
+                    ))}
+                  </Section>
+                )}
+
+                {/* Anything the canned answers don't cover goes to the model. */}
+                {query.trim().length >= 2 && (
+                  <Section title="שאלה חופשית">
+                    <button
+                      onClick={() => askAi(query)}
+                      className="press w-full flex items-center gap-3 text-right bg-surface-sunken border border-separator rounded-xl px-3.5 py-2.5 hover:border-accent/30"
+                    >
+                      <Sparkles size={15} className="text-accent shrink-0" />
+                      <span className="flex-1 min-w-0 text-[13px] text-label truncate">{`לשאול את העוזר: "${query.trim()}"`}</span>
+                      <ChevronLeft size={14} className="text-label-tertiary shrink-0" />
+                    </button>
+                  </Section>
+                )}
+
+                {!query && (
+                  <p className="text-center text-[11px] text-label-tertiary pt-1">
+                    אפשר גם להקליד שם של נכס או שוכר כדי למצוא אותם
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-          {/* ── Tenant detail ─────────────────────────── */}
-          {tenant && (
-            <div className="p-4 space-y-4">
-              <div className="bg-accent-tint border border-accent/15 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <User size={15} className="text-accent" />
-                  <span className="text-[14px] font-semibold text-label">{tenant.full_name}</span>
-                </div>
-                {tenant.phone && (
-                  <a href={`tel:${tenant.phone}`} className="flex items-center gap-2 text-[12px] text-label-secondary hover:text-accent" dir="ltr">
-                    <Phone size={12} /> {tenant.phone}
-                  </a>
-                )}
-                {tenantLeases.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-accent/15 text-[12px] text-label-secondary">
-                    {`סה"כ שכירות: ${ILS(tenantLeases.filter((l) => l.status === 'active').reduce((s, l) => s + (Number(l.monthly_rent) || 0), 0))} לחודש`}
-                  </div>
-                )}
-              </div>
-
-              <Section title={`חוזים (${tenantLeases.length})`}>
-                {tenantLeases.length === 0 ? (
-                  <p className="text-[12px] text-label-tertiary px-1 py-2">{loading ? STILL_LOADING : 'אין חוזים לשוכר הזה.'}</p>
-                ) : (
-                  tenantLeases.map((l) => {
-                    const d = daysUntil(l.end_date);
-                    const u = URGENCY_STYLE[leaseUrgency(d)];
-                    return (
-                      <Row
-                        key={l.id}
-                        icon={<FileText size={15} className="text-accent" />}
-                        title={l.properties?.name ?? 'נכס'}
-                        subtitle={`${heDate(l.start_date)} – ${heDate(l.end_date)}`}
-                        value={ILS(l.monthly_rent)}
-                        tag={l.status === 'active' ? u.label(d) : 'הסתיים'}
-                        tagClass={l.status === 'active' ? u.text : 'text-label-tertiary'}
-                        onClick={() => go(`/properties/${l.property_id}`)}
-                      />
-                    );
-                  })
-                )}
-              </Section>
-            </div>
-          )}
-
-          {/* ── Canned answer ─────────────────────────── */}
-          {answer && (
-            <div className="p-4 space-y-3">
-              {answer.summary && (
-                <div className="bg-accent-tint border border-accent/15 rounded-2xl px-4 py-3 text-[13px] text-label">
-                  {answer.summary}
-                </div>
-              )}
-              {answer.rows.length === 0 ? (
-                <p className="text-center text-[13px] text-label-tertiary py-10">{answer.empty}</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {answer.rows.map((r) => (
-                    <Row key={r.id} title={r.title} subtitle={r.subtitle} value={r.value} tag={r.tag} tagClass={r.tagClass}
-                      onClick={r.href ? () => go(r.href) : undefined} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Free-text AI answer ───────────────────── */}
-          {ai && (
-            <div className="p-4 space-y-3">
-              <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl px-3.5 py-2 text-[14px] bg-accent text-white">{ai.question}</div>
-              </div>
-              {ai.loading ? (
-                <div className="flex justify-end">
-                  <div className="bg-surface-sunken border border-separator rounded-2xl px-4 py-3">
-                    <div className="flex gap-1">
-                      {[0, 150, 300].map((d) => (
-                        <span key={d} className="w-1.5 h-1.5 rounded-full bg-label-tertiary animate-bounce" style={{ animationDelay: `${d}ms` }} />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex justify-end">
-                  <div className="max-w-[85%] rounded-2xl px-3.5 py-2 text-[14px] leading-relaxed whitespace-pre-wrap bg-surface-sunken text-label border border-separator">
-                    {ai.answer}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Home / search results ─────────────────── */}
-          {showingHome && (
-            <div className="p-4 space-y-4">
-              {loading && <p className="text-center text-[11px] text-label-tertiary py-1">{STILL_LOADING}</p>}
-              {dataFailed && (
-                <p className="text-[12px] text-danger bg-danger-tint border border-danger/20 rounded-xl px-3 py-2.5">{LOAD_ERROR}</p>
-              )}
-
-              {query.trim().length >= 2 && (propertyMatches.length > 0 || !loading) && (
-                <>
-                  {propertyMatches.length > 0 && (
-                    <Section title={`נכסים (${propertyMatches.length})`}>
-                      {propertyMatches.map((p) => (
-                        <Row
-                          key={p.id}
-                          icon={<Building2 size={15} className="text-accent" />}
-                          title={p.name}
-                          subtitle={`${p.address}, ${p.city}`}
-                          value={p.current_value ? ILS(p.current_value) : undefined}
-                          tag={PROPERTY_STATUS[p.status]?.label}
-                          tagClass={PROPERTY_STATUS[p.status]?.text}
-                          onClick={() => go(`/properties/${p.id}`)}
-                        />
-                      ))}
-                    </Section>
-                  )}
-                  {tenantMatches.length > 0 && (
-                    <Section title={`שוכרים (${tenantMatches.length})`}>
-                      {tenantMatches.map((t) => (
-                        <Row
-                          key={t.id}
-                          icon={<User size={15} className="text-accent" />}
-                          title={t.full_name}
-                          subtitle={t.phone ?? 'אין טלפון'}
-                          onClick={() => { setTenant(t); setAnswer(null); setAi(null); }}
-                        />
-                      ))}
-                    </Section>
-                  )}
-                </>
-              )}
-
-              {actionMatches.some((a) => a.group === 'answers') && (
-                <Section title="מה אפשר לשאול">
-                  {actionMatches.filter((a) => a.group === 'answers').map((a) => (
-                    <ActionRow key={a.id} action={a} onClick={() => runAction(a)} />
-                  ))}
-                </Section>
-              )}
-
-              {actionMatches.some((a) => a.group === 'nav') && (
-                <Section title="מעבר מהיר">
-                  {actionMatches.filter((a) => a.group === 'nav').map((a) => (
-                    <ActionRow key={a.id} action={a} onClick={() => runAction(a)} />
-                  ))}
-                </Section>
-              )}
-
-              {/* Anything the canned answers don't cover goes to the model. */}
-              {query.trim().length >= 2 && (
-                <Section title="שאלה חופשית">
-                  <button
-                    onClick={() => askAi(query.trim())}
-                    className="press w-full flex items-center gap-3 text-right bg-surface-sunken border border-separator rounded-xl px-3.5 py-2.5 hover:border-accent/30"
-                  >
-                    <Sparkles size={15} className="text-accent shrink-0" />
-                    <span className="flex-1 min-w-0 text-[13px] text-label truncate">{`לשאול את העוזר: "${query.trim()}"`}</span>
-                  </button>
-                </Section>
-              )}
-
-              {!query && (
-                <p className="text-center text-[11px] text-label-tertiary pt-1">
-                  אפשר גם להקליד שם של נכס או שוכר כדי למצוא אותם
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+        {/* AI conversation input — the chat continues, no back-and-retype */}
+        {aiChat && (
+          <div className="shrink-0 px-3 py-2.5 border-t border-separator safe-bottom">
+            <AiInput
+              inputRef={aiInputRef}
+              disabled={aiChat.loading}
+              onSend={askAi}
+              onFocus={onFieldFocus}
+              onBlur={onFieldBlur}
+            />
+          </div>
+        )}
       </div>
     </>
   );
@@ -634,6 +813,46 @@ export default function AssistantChat() {
 // ─────────────────────────────────────────────────────────────
 // Presentational pieces
 // ─────────────────────────────────────────────────────────────
+function AiInput({
+  inputRef, disabled, onSend, onFocus, onBlur,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  disabled: boolean;
+  onSend: (text: string) => void;
+  onFocus: () => void;
+  onBlur: () => void;
+}) {
+  const [text, setText] = useState('');
+  const send = () => {
+    if (!text.trim() || disabled) return;
+    onSend(text);
+    setText('');
+  };
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        ref={inputRef}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && send()}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        placeholder="שאלת המשך…"
+        dir="rtl"
+        className="flex-1 bg-surface-sunken border border-separator rounded-xl px-4 py-2.5 text-[14px] text-label outline-none focus:ring-2 focus:ring-accent/30 placeholder:text-label-tertiary"
+      />
+      <button
+        onClick={send}
+        disabled={!text.trim() || disabled}
+        className="press w-11 h-11 shrink-0 rounded-xl bg-accent text-white flex items-center justify-center disabled:opacity-40"
+        aria-label="שליחה"
+      >
+        <Send size={16} strokeWidth={2.2} className="-scale-x-100" />
+      </button>
+    </div>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
@@ -647,7 +866,7 @@ function Row({
   icon, title, subtitle, value, tag, tagClass, onClick,
 }: {
   icon?: React.ReactNode;
-  title: string;
+  title: React.ReactNode;
   subtitle?: string;
   value?: string;
   tag?: string;
@@ -667,9 +886,12 @@ function Row({
     </>
   );
   if (!onClick) return <div className={base}>{inner}</div>;
+  // The chevron is the affordance separating "opens something" from a
+  // read-only stat row — without it the two are indistinguishable.
   return (
     <button onClick={onClick} className={`press ${base} hover:border-accent/30`}>
       {inner}
+      <ChevronLeft size={14} className="text-label-tertiary shrink-0" />
     </button>
   );
 }
@@ -686,6 +908,7 @@ function ActionRow({ action, onClick }: { action: ActionDef; onClick: () => void
         <div className="text-[14px] font-medium text-label truncate">{action.label}</div>
         <div className="text-[11px] text-label-secondary truncate">{action.hint}</div>
       </div>
+      <ChevronLeft size={14} className="text-label-tertiary shrink-0" />
     </button>
   );
 }
