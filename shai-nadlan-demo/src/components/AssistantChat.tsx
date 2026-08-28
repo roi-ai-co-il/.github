@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import {
   Sparkles, X, Search, ChevronRight, ChevronLeft, Phone, User, Building2, FileText,
   LayoutGrid, Plus, Wallet, Landmark, KeyRound, CalendarClock, PieChart, Send,
-  MessageCircle, History,
+  History,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { WhatsAppIcon } from '@/components/ContactButtons';
 import { ILS, heDate, daysUntil, waLink } from '@/lib/format';
 import { PROPERTY_TYPES, PROPERTY_STATUS, leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
 
@@ -620,8 +621,8 @@ export default function AssistantChat() {
                       <a href={`tel:${tenant.phone}`} className="press flex-1 flex items-center justify-center gap-1.5 text-[12px] font-medium text-accent bg-canvas border border-accent/20 rounded-xl py-2">
                         <Phone size={13} /> חיוג
                       </a>
-                      <a href={waLink(tenant.phone)} target="_blank" rel="noopener" className="press flex-1 flex items-center justify-center gap-1.5 text-[12px] font-medium text-success bg-canvas border border-success/25 rounded-xl py-2">
-                        <MessageCircle size={13} /> WhatsApp
+                      <a href={waLink(tenant.phone)} target="_blank" rel="noopener" className="press flex-1 flex items-center justify-center gap-1.5 text-[12px] font-semibold text-white bg-[#25D366] rounded-xl py-2">
+                        <WhatsAppIcon size={14} /> וואטסאפ
                       </a>
                     </div>
                   )}

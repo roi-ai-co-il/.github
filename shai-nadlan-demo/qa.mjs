@@ -51,6 +51,7 @@ const digits = (s) => (s ?? '').replace(/\D/g, '');
 // ── Ground truth from the DB (service key, read-only) ─────────
 const props = await rest('properties?select=id,name,status,current_value,cover_image_url,rooms');
 const leases = await rest('leases?select=id,end_date,monthly_rent,status&status=eq.active');
+const tenants0 = await rest('tenants?select=id');
 const today = new Date(); today.setHours(0, 0, 0, 0);
 const dUntil = (d) => Math.round((new Date(d).setHours(0, 0, 0, 0) - today.getTime()) / 86400000);
 const GT = {
@@ -60,6 +61,7 @@ const GT = {
   activeLeases: leases.length,
   attention90: leases.filter((l) => dUntil(l.end_date) <= 90).length,
   vacant: props.filter((p) => p.status === 'vacant').length,
+  tenantCount: tenants0.length,
   rented: props.filter((p) => p.status === 'rented').length,
 };
 console.log(`ground truth: ${GT.propCount} props, value ${GT.totalValue}, monthly ${GT.monthly}, active ${GT.activeLeases}, ≤90d ${GT.attention90}`);
@@ -215,6 +217,68 @@ try {
   await page.goto(BASE + '/properties', { waitUntil: 'networkidle' });
   check('3.4d new property appears in the list', (await page.locator('body').innerText()).includes('בדיקת QA אוטומטית'));
 
+  // 3.45 Lease lifecycle through the UI: rent → renew at a new price → end → delete
+  await page.goto(`${BASE}/properties/${qaPropertyId}`, { waitUntil: 'networkidle' });
+  await page.getByText('השכרת הנכס').click();
+  await page.waitForURL(/\/lease/, { timeout: 15000 });
+  await page.getByText('שוכר חדש', { exact: true }).click();
+  await page.locator('#fullName').fill('שוכר בדיקת QA');
+  await page.locator('#phone').fill('050-1112233');
+  await page.locator('#rent').fill('5000');
+  await page.getByText('השכרת הנכס', { exact: true }).last().click();
+  await page.waitForURL(new RegExp(`/properties/${qaPropertyId}$`), { timeout: 20000 });
+  await page.waitForTimeout(800);
+  let dbLease = await rest(`leases?select=id,monthly_rent,status,tenant:tenants(full_name)&property_id=eq.${qaPropertyId}&status=eq.active`);
+  let dbProp = await rest(`properties?select=status&id=eq.${qaPropertyId}`);
+  check('3.45a rent to a NEW tenant via UI (lease active, tenant created, property rented)',
+    dbLease.length === 1 && Number(dbLease[0].monthly_rent) === 5000 && dbLease[0].tenant?.full_name === 'שוכר בדיקת QA' && dbProp[0]?.status === 'rented',
+    JSON.stringify({ lease: dbLease.length, rent: dbLease[0]?.monthly_rent, prop: dbProp[0]?.status }));
+
+  // renew at a new price
+  await page.getByText('שוכר חדש / מחיר חדש').click();
+  await page.waitForURL(/renew=1/, { timeout: 15000 });
+  const prefilled = await page.locator('#rent').inputValue();
+  await page.locator('#rent').fill('6000');
+  await page.waitForTimeout(300);
+  const deltaShown = (await page.locator('body').innerText()).includes('20.0%');
+  await page.getByText('סיום הישן והחתמת החדש').click();
+  await page.waitForURL(new RegExp(`/properties/${qaPropertyId}$`), { timeout: 20000 });
+  await page.waitForTimeout(800);
+  const activeNow = await rest(`leases?select=monthly_rent,status&property_id=eq.${qaPropertyId}&status=eq.active`);
+  const endedNow = await rest(`leases?select=monthly_rent,status&property_id=eq.${qaPropertyId}&status=eq.ended`);
+  check('3.45b renewal prefills the old rent and shows the price delta', prefilled === '5000' && deltaShown, `prefill=${prefilled} delta=${deltaShown}`);
+  check('3.45c renew at new price: old lease ended, one active at ₪6,000',
+    activeNow.length === 1 && Number(activeNow[0].monthly_rent) === 6000 && endedNow.length === 1,
+    JSON.stringify({ active: activeNow, ended: endedNow.length }));
+
+  // end the lease
+  await page.getByText('סיום חוזה', { exact: true }).click();
+  await page.getByText('סיום חוזה', { exact: true }).last().click(); // the confirm button
+  await page.waitForTimeout(1500);
+  const afterEnd = await rest(`leases?select=status&property_id=eq.${qaPropertyId}&status=eq.active`);
+  dbProp = await rest(`properties?select=status&id=eq.${qaPropertyId}`);
+  check('3.45d end lease via UI: no active lease, property vacant',
+    afterEnd.length === 0 && dbProp[0]?.status === 'vacant', JSON.stringify({ active: afterEnd.length, prop: dbProp[0]?.status }));
+
+  // delete the property (also removes its storage files)
+  const imgPaths = await rest(`property_images?select=storage_path&property_id=eq.${qaPropertyId}`);
+  await page.getByLabel('מחיקת נכס').click();
+  await page.getByText('מחיקה', { exact: true }).click();
+  await page.waitForURL(/\/properties$/, { timeout: 20000 });
+  await page.waitForTimeout(1000);
+  const goneProp = await rest(`properties?select=id&id=eq.${qaPropertyId}`);
+  const goneLeases = await rest(`leases?select=id&property_id=eq.${qaPropertyId}`);
+  let storageGone = true;
+  for (const im of imgPaths) {
+    if (!im.storage_path) continue;
+    const r = await fetch(`${SUPA}/storage/v1/object/public/property-images/${im.storage_path}`);
+    if (r.ok) storageGone = false;
+  }
+  check('3.45e delete property via UI: row, leases and storage files gone',
+    goneProp.length === 0 && goneLeases.length === 0 && storageGone,
+    JSON.stringify({ prop: goneProp.length, leases: goneLeases.length, storageGone }));
+  qaPropertyId = null; // already deleted through the UI
+
   // 3.5 Leases page
   await page.goto(BASE + '/leases', { waitUntil: 'networkidle' });
   const leasesBody = await page.locator('body').innerText();
@@ -295,6 +359,7 @@ try {
     }
     await fetch(`${SUPA}/rest/v1/properties?id=eq.${qaPropertyId}`, { method: 'DELETE', headers: svcHeaders });
   }
+  await fetch(`${SUPA}/rest/v1/tenants?full_name=eq.${encodeURIComponent('שוכר בדיקת QA')}`, { method: 'DELETE', headers: svcHeaders }).catch(() => {});
   if (foreignUserId) {
     await fetch(`${SUPA}/auth/v1/admin/users/${foreignUserId}`, { method: 'DELETE', headers: svcHeaders });
   }
@@ -303,6 +368,8 @@ try {
   const leftover = await rest('properties?select=id&name=eq.בדיקת QA אוטומטית');
   check('9.1 cleanup: property count restored', after.length === GT.propCount, `${after.length} vs ${GT.propCount}`);
   check('9.2 cleanup: no QA rows left', leftover.length === 0);
+  const tenantsAfter = await rest('tenants?select=id');
+  check('9.3 cleanup: tenant count restored', tenantsAfter.length === GT.tenantCount, `${tenantsAfter.length} vs ${GT.tenantCount}`);
   await browser.close();
 
   const fails = results.filter((r) => !r.ok);

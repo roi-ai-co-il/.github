@@ -2,13 +2,15 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   ChevronRight, MapPin, BedDouble, Ruler, Layers, Wallet,
-  TrendingUp, CalendarDays, FileText, Phone, MessageSquare, StickyNote, User, Home,
+  TrendingUp, CalendarDays, FileText, StickyNote, User, Home,
 } from 'lucide-react';
+import ContactButtons from '@/components/ContactButtons';
 import { createClient } from '@/lib/supabase/server';
 import { ILS, heDate, daysUntil, waLink } from '@/lib/format';
 import { PROPERTY_TYPES, leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
 import { StatusBadge, Group, Rows, EmptyState, IconChip } from '@/components/ui';
 import PropertyGallery from '@/components/PropertyGallery';
+import PropertyActions from '@/components/PropertyActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,6 +73,17 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
       </div>
+
+      {/* ── Actions — everything you can do with the property, one row ── */}
+      <PropertyActions
+        propertyId={property.id}
+        propertyName={property.name}
+        activeLease={
+          activeLease
+            ? { id: activeLease.id, tenantName: activeLease.tenant?.full_name ?? 'השוכר', endDate: activeLease.end_date }
+            : null
+        }
+      />
 
       <PropertyGallery
         propertyId={property.id}
@@ -173,19 +186,12 @@ function LeasePanel({ lease }: {
             <p className="text-[13px] text-label-tertiary whitespace-nowrap" dir="ltr">{lease.tenant.phone}</p>
           )}
         </div>
-        {lease.tenant?.phone && (
-          <div className="flex items-center shrink-0">
-            <a href={waLink(lease.tenant.phone)} target="_blank" rel="noreferrer"
-              className="press touch-target rounded-full text-label-tertiary hover:text-success" title="וואטסאפ">
-              <MessageSquare size={19} strokeWidth={2} />
-            </a>
-            <a href={`tel:${lease.tenant.phone}`}
-              className="press touch-target rounded-full text-label-tertiary hover:text-accent" title="התקשר">
-              <Phone size={19} strokeWidth={2} />
-            </a>
-          </div>
-        )}
       </div>
+      {lease.tenant?.phone && (
+        <div className="px-4 py-3 border-b border-separator">
+          <ContactButtons phone={lease.tenant.phone} name={lease.tenant.full_name ?? undefined} />
+        </div>
+      )}
 
       {/* Term progress against today */}
       <div className="px-4 py-3.5 border-b border-separator">

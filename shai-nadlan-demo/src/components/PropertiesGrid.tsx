@@ -7,6 +7,7 @@ import { Building2, Search, BedDouble, Ruler, Plus, X } from 'lucide-react';
 import { ILS } from '@/lib/format';
 import { PROPERTY_TYPES } from '@/lib/domain';
 import { StatusBadge, EmptyState } from '@/components/ui';
+import ContactButtons from '@/components/ContactButtons';
 
 type PropertyRow = {
   id: string;
@@ -19,7 +20,7 @@ type PropertyRow = {
   status: string;
   current_value: number | null;
   cover_image_url: string | null;
-  leases: { monthly_rent: number; end_date: string; status: string }[];
+  leases: { monthly_rent: number; end_date: string; status: string; tenant: { full_name: string; phone: string | null } | null }[];
 };
 
 const FILTERS = [
@@ -111,11 +112,12 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
           {filtered.map((p) => {
             const activeLease = p.leases.find((l) => l.status === 'active');
+            const tenantPhone = activeLease?.tenant?.phone ?? null;
             return (
+              <div key={p.id} className="bg-surface rounded-2xl border border-separator overflow-hidden">
               <Link
-                key={p.id}
                 href={`/properties/${p.id}`}
-                className="press group bg-surface rounded-2xl border border-separator overflow-hidden"
+                className="press group block"
               >
                 <div className="relative aspect-[16/10] bg-surface-sunken overflow-hidden">
                   {p.cover_image_url ? (
@@ -176,6 +178,13 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
                   </div>
                 </div>
               </Link>
+              {tenantPhone && (
+                <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-t border-separator bg-surface-sunken/50">
+                  <span className="text-[12px] text-label-secondary truncate">{activeLease?.tenant?.full_name}</span>
+                  <ContactButtons phone={tenantPhone} name={activeLease?.tenant?.full_name} compact />
+                </div>
+              )}
+              </div>
             );
           })}
         </div>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { FileText, AlertCircle, CheckCircle2, Phone, MessageSquare, ChevronLeft } from 'lucide-react';
+import { FileText, AlertCircle, CheckCircle2, Phone, ChevronLeft } from 'lucide-react';
+import ContactButtons, { WhatsAppIcon } from '@/components/ContactButtons';
 import { createClient } from '@/lib/supabase/server';
 import { ILS, heDate, daysUntil, waLink } from '@/lib/format';
 import { leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
@@ -105,9 +106,9 @@ function LeaseRow({ lease }: { lease: LeaseRecord & { days: number } }) {
             href={waLink(phone)}
             target="_blank"
             rel="noreferrer"
-            className="flex-1 flex flex-col items-center justify-center gap-1 bg-success text-white"
+            className="flex-1 flex flex-col items-center justify-center gap-1 bg-[#25D366] text-white"
           >
-            <MessageSquare size={19} strokeWidth={2.2} />
+            <WhatsAppIcon size={20} />
             <span className="text-[11px] font-semibold">וואטסאפ</span>
           </a>
           <a
@@ -173,16 +174,7 @@ function LeaseItem({ lease }: { lease: LeaseRecord & { days: number } }) {
           <p className="text-[12px] text-label-tertiary truncate">{lease.notes}</p>
         ) : <span />}
         {lease.tenant?.phone && (
-          <div className="pointer-only flex items-center shrink-0 -mb-1">
-            <a href={waLink(lease.tenant.phone)} target="_blank" rel="noreferrer"
-              className="press touch-target rounded-full text-label-tertiary hover:text-success" title="וואטסאפ לשוכר">
-              <MessageSquare size={18} strokeWidth={2} />
-            </a>
-            <a href={`tel:${lease.tenant.phone}`}
-              className="press touch-target rounded-full text-label-tertiary hover:text-accent" title="התקשר לשוכר">
-              <Phone size={18} strokeWidth={2} />
-            </a>
-          </div>
+          <ContactButtons phone={lease.tenant.phone} name={lease.tenant.full_name ?? undefined} compact />
         )}
       </div>
     </div>
