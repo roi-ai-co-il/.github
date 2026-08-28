@@ -19,6 +19,7 @@ interface PrevLease {
   tenant_id: string;
   tenant_name: string;
   monthly_rent: number;
+  start_date: string;
   end_date: string;
 }
 
@@ -133,18 +134,17 @@ export default function LeaseForm({
       }
 
       // 2. The current lease (if any) ends today — replacing it is one action.
+      // end_date is shortened to today only when today is strictly INSIDE the
+      // lease term; a lease that started today (or already ran out) keeps its
+      // dates and only flips status, so the end_date > start_date constraint
+      // can never reject the close.
       if (activeLease) {
-        const endedOn = today > activeLease.end_date ? activeLease.end_date : today;
+        const shorten = today > activeLease.start_date && today < activeLease.end_date;
         const { error: eErr } = await supabase
           .from('leases')
-          .update({ status: 'ended', end_date: endedOn })
-          .eq('id', activeLease.id)
-          .gt('end_date', endedOn === today ? today : '1900-01-01');
-        // A lease that already ended on paper just gets its status flipped.
-        if (eErr) {
-          const { error: e2 } = await supabase.from('leases').update({ status: 'ended' }).eq('id', activeLease.id);
-          if (e2) throw new Error('סגירת החוזה הנוכחי נכשלה — נסה שוב');
-        }
+          .update(shorten ? { status: 'ended', end_date: today } : { status: 'ended' })
+          .eq('id', activeLease.id);
+        if (eErr) throw new Error('סגירת החוזה הנוכחי נכשלה — נסה שוב');
       }
 
       // 3. The new lease.

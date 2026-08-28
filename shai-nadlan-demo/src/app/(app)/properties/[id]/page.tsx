@@ -80,7 +80,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         propertyName={property.name}
         activeLease={
           activeLease
-            ? { id: activeLease.id, tenantName: activeLease.tenant?.full_name ?? 'השוכר', endDate: activeLease.end_date }
+            ? { id: activeLease.id, tenantName: activeLease.tenant?.full_name ?? 'השוכר', startDate: activeLease.start_date, endDate: activeLease.end_date }
             : null
         }
       />

@@ -26,7 +26,7 @@ export default function PropertyActions({
 }: {
   propertyId: string;
   propertyName: string;
-  activeLease: { id: string; tenantName: string; endDate: string } | null;
+  activeLease: { id: string; tenantName: string; startDate: string; endDate: string } | null;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -45,10 +45,12 @@ export default function PropertyActions({
     setBusy(true);
     const supabase = createClient();
     const today = isoToday();
-    const endedOn = today < activeLease.endDate ? today : activeLease.endDate;
+    // Shorten end_date only when today is strictly inside the term — a lease
+    // that started today just flips status (end_date > start_date must hold).
+    const shorten = today > activeLease.startDate && today < activeLease.endDate;
     const { error: lErr } = await supabase
       .from('leases')
-      .update({ status: 'ended', end_date: endedOn })
+      .update(shorten ? { status: 'ended', end_date: today } : { status: 'ended' })
       .eq('id', activeLease.id);
     if (lErr) {
       toast('סיום החוזה נכשל — נסה שוב');

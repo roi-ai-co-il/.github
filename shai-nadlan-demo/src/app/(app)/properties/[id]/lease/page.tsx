@@ -22,7 +22,7 @@ export default async function NewLeasePage({
     supabase.from('tenants').select('id, full_name, phone').order('full_name'),
     supabase
       .from('leases')
-      .select('id, tenant_id, monthly_rent, end_date, tenant:tenants(full_name)')
+      .select('id, tenant_id, monthly_rent, start_date, end_date, tenant:tenants(full_name)')
       .eq('property_id', id)
       .eq('status', 'active')
       .order('end_date', { ascending: false })
@@ -38,6 +38,7 @@ export default async function NewLeasePage({
         tenant_id: active.tenant_id,
         tenant_name: (active.tenant as { full_name: string } | null)?.full_name ?? 'השוכר הנוכחי',
         monthly_rent: Number(active.monthly_rent),
+        start_date: active.start_date,
         end_date: active.end_date,
       }
     : null;
