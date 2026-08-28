@@ -60,7 +60,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Everything except static assets and images.
-    '/((?!_next/static|_next/image|favicon.ico|icon.svg|.*\\.(?:svg|png|jpg|jpeg|webp)$).*)',
+    // Everything except API routes (they answer 401 themselves — a login
+    // redirect is wrong for JSON callers), static assets and images.
+    '/((?!api/|_next/static|_next/image|favicon.ico|icon.svg|.*\\.(?:svg|png|jpg|jpeg|webp)$).*)',
   ],
 };
