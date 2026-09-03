@@ -57,6 +57,7 @@ export type Database = {
       }
       leases: {
         Row: {
+          cpi_updated_on: string | null
           created_at: string
           deposit: number | null
           end_date: string
@@ -73,6 +74,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cpi_updated_on?: string | null
           created_at?: string
           deposit?: number | null
           end_date: string
@@ -89,6 +91,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cpi_updated_on?: string | null
           created_at?: string
           deposit?: number | null
           end_date?: string
@@ -128,11 +131,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cpi_updated_on?: string | null
           created_at?: string
           note?: string | null
           user_id: string
         }
         Update: {
+          cpi_updated_on?: string | null
           created_at?: string
           note?: string | null
           user_id?: string
@@ -154,6 +159,7 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
+          cpi_updated_on?: string | null
           created_at?: string
           entity_id?: string | null
           id?: string
@@ -165,6 +171,7 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
+          cpi_updated_on?: string | null
           created_at?: string
           entity_id?: string | null
           id?: string

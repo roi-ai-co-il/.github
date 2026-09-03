@@ -13,6 +13,7 @@ import PropertyGallery from '@/components/PropertyGallery';
 import PropertyActions from '@/components/PropertyActions';
 import PaymentsCard from '@/components/PaymentsCard';
 import PropertyDocuments from '@/components/PropertyDocuments';
+import CpiUpdateButton from '@/components/CpiUpdateButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,7 +141,23 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         {/* ── Active lease ────────────────────────────── */}
         <div className="lg:col-span-2 space-y-5">
           {activeLease ? (
-            <LeasePanel lease={activeLease} />
+            <>
+              <LeasePanel lease={activeLease} />
+              {activeLease.linked_to_cpi && (() => {
+                // Counted from the last update, or from the lease start when it
+                // has never been updated — the same rule the dashboard uses.
+                const since = activeLease.cpi_updated_on ?? activeLease.start_date;
+                const anniversary = new Date(since);
+                anniversary.setFullYear(anniversary.getFullYear() + 1);
+                return (
+                  <CpiUpdateButton
+                    leaseId={activeLease.id}
+                    since={since}
+                    due={daysUntil(anniversary.toISOString().slice(0, 10)) <= 0}
+                  />
+                );
+              })()}
+            </>
           ) : (
             <Group title="חוזה שכירות">
               <EmptyState icon={FileText} text="אין חוזה פעיל בנכס זה" />

@@ -25,7 +25,7 @@ export default async function DashboardPage() {
     supabase.from('properties').select('id, name, city, status, current_value, property_type, entity_id'),
     supabase
       .from('leases')
-      .select('id, start_date, end_date, monthly_rent, property:properties(id, name, city), tenant:tenants(full_name, phone)')
+      .select('id, start_date, end_date, monthly_rent, linked_to_cpi, cpi_updated_on, property:properties(id, name, city), tenant:tenants(full_name, phone)')
       .eq('status', 'active')
       .order('end_date', { ascending: true }),
     // Money that is already late outranks a contract that ends later, so the
@@ -88,7 +88,6 @@ export default async function DashboardPage() {
     lateByLease.set(lease.id, g);
   }
   const late = [...lateByLease.values()].sort((a, b) => a.oldestDue.localeCompare(b.oldestDue));
-  const needsAttention = late.length + expiring.length;
 
   /* Value and count per holder. Properties with no entity are gathered under
      one honest "לא צוין" row rather than silently dropped — a portfolio view
@@ -110,6 +109,24 @@ export default async function DashboardPage() {
     });
   }
   holders.sort((a, b) => b.value - a.value);
+
+  /* Index-linked rent whose anniversary has passed. Measured from the last
+     update, or from the lease start when it has never been updated — so once
+     Shai marks it handled the reminder goes quiet for another year instead of
+     nagging every time the dashboard loads. */
+  const cpiDue = activeLeases
+    .filter((l) => l.linked_to_cpi)
+    .map((l) => {
+      const since = l.cpi_updated_on ?? l.start_date;
+      const due = new Date(since);
+      due.setFullYear(due.getFullYear() + 1);
+      const dueIso = due.toISOString().slice(0, 10);
+      return { ...l, since, dueIso, overdueDays: -daysUntil(dueIso) };
+    })
+    .filter((l) => l.overdueDays >= 0)
+    .sort((a, b) => b.overdueDays - a.overdueDays);
+
+  const needsAttention = late.length + expiring.length + cpiDue.length;
 
   return (
     <div className="space-y-6">
@@ -195,8 +212,22 @@ export default async function DashboardPage() {
                 </div>
               );
             })}
+            {cpiDue.slice(0, 2).map((l) => (
+              <div key={`cpi-${l.id}`} className="flex items-center gap-3 px-4 py-3">
+                <TrendingUp size={18} strokeWidth={2.2} className="shrink-0 text-info" />
+                <Link href={`/properties/${l.property?.id}`} className="press-row flex-1 min-w-0 -m-1 p-1 rounded-lg">
+                  <p className="font-semibold text-[15px] text-label truncate">{l.property?.name}</p>
+                  <p className="text-[13px] text-label-secondary truncate mt-0.5">
+                    צמוד מדד · {ILS(l.monthly_rent)} · מאז {heDate(l.since)}
+                  </p>
+                </Link>
+                <span className="shrink-0 px-2.5 py-1 rounded-full text-[12px] font-semibold text-info bg-info-tint">
+                  עדכון מדד
+                </span>
+              </div>
+            ))}
           </Rows>
-          {(expiring.length > 4 || late.length > 3) && (
+          {(expiring.length > 4 || late.length > 3 || cpiDue.length > 2) && (
             <Link
               href="/leases"
               className="press-row flex items-center justify-center gap-1 py-3 text-[14px] font-semibold text-accent border-t border-separator"
@@ -205,6 +236,7 @@ export default async function DashboardPage() {
                 {[
                   late.length > 3 ? `עוד ${late.length - 3} באיחור` : null,
                   expiring.length > 4 ? `עוד ${expiring.length - 4} חוזים` : null,
+                  cpiDue.length > 2 ? `עוד ${cpiDue.length - 2} לעדכון מדד` : null,
                 ].filter(Boolean).join(' · ')}
               </span>
               <ChevronLeft size={15} strokeWidth={2.5} />
