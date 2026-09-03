@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Loader2, Save } from 'lucide-react';
@@ -28,7 +28,10 @@ export interface PropertyInitial {
   purchase_date: string | null;
   current_value: number | null;
   notes: string | null;
+  entity_id: string | null;
 }
+
+type Entity = { id: string; name: string };
 
 /** One form for creating a property and for editing it — same fields, same
     validation, so the two screens can never drift apart. */
@@ -54,7 +57,19 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
     current_value: initial?.current_value != null ? String(initial.current_value) : '',
     notes: initial?.notes ?? '',
     asking_rent: initial?.asking_rent != null ? String(initial.asking_rent) : '',
+    entity_id: initial?.entity_id ?? '',
   });
+
+  /* Who legally holds this property. Shai asked for exactly this at 0:40 —
+     "מי מחזיק במה". Optional: leave it blank and the property behaves as it
+     always has, so nobody is forced to model ownership before adding a flat. */
+  const [entities, setEntities] = useState<Entity[]>([]);
+  const [newEntity, setNewEntity] = useState('');
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.from('owner_entities').select('id, name').order('name')
+      .then(({ data }) => setEntities(data ?? []));
+  }, []);
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -77,7 +92,24 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
     setSaving(true);
 
     const supabase = createClient();
+
+    /* A name typed into "ישות חדשה" becomes a real entity on save, so adding a
+       property and naming its holder is one action rather than two screens. */
+    let entityId: string | null = form.entity_id || null;
+    const typed = newEntity.trim();
+    if (typed) {
+      const { data: created, error: entErr } = await supabase
+        .from('owner_entities').insert({ name: typed }).select('id').single();
+      if (entErr || !created) {
+        setError('יצירת הישות נכשלה — נסה שוב');
+        setSaving(false);
+        return;
+      }
+      entityId = created.id;
+    }
+
     const payload = {
+      entity_id: entityId,
       name: form.name.trim(),
       address: form.address.trim(),
       city: form.city.trim(),
@@ -165,6 +197,28 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
           onChange={(v) => set('status', v)}
           options={Object.entries(PROPERTY_STATUS).map(([k, v]) => ({ value: k, label: v.label, dot: v.dot }))}
         />
+
+        <div>
+          <label htmlFor="entity_id" className={labelCls}>מי מחזיק בנכס</label>
+          <select
+            id="entity_id"
+            className={inputCls}
+            value={form.entity_id}
+            onChange={(e) => { set('entity_id', e.target.value); setNewEntity(''); }}
+            disabled={newEntity.trim().length > 0}
+          >
+            <option value="">לא צוין</option>
+            {entities.map((en) => <option key={en.id} value={en.id}>{en.name}</option>)}
+          </select>
+          <input
+            className={`${inputCls} mt-2`}
+            value={newEntity}
+            onChange={(e) => { setNewEntity(e.target.value); if (e.target.value) set('entity_id', ''); }}
+            placeholder="או הקלד שם של ישות חדשה"
+            aria-label="ישות חדשה"
+          />
+          <p className="text-[12px] text-label-tertiary mt-1.5 mr-1">אדם או חברה שעל שמם רשום הנכס. אפשר להשאיר ריק.</p>
+        </div>
 
         <div>
           <label htmlFor="asking_rent" className={labelCls}>שכר דירה מבוקש (₪ לחודש)</label>

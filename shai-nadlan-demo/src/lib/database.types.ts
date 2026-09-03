@@ -139,6 +139,83 @@ export type Database = {
         }
         Relationships: []
       }
+      buildings: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          entity_id: string | null
+          id: string
+          name: string
+          notes: string | null
+          owner: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          owner?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          owner?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buildings_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "owner_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_entities: {
+        Row: {
+          created_at: string
+          entity_type: string
+          id: string
+          name: string
+          notes: string | null
+          owner: string
+          tax_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entity_type?: string
+          id?: string
+          name: string
+          notes?: string | null
+          owner?: string
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entity_type?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          owner?: string
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       properties: {
         Row: {
           address: string
@@ -146,7 +223,9 @@ export type Database = {
           asking_rent: number | null
           city: string
           cover_image_url: string | null
+          building_id: string | null
           created_at: string
+          entity_id: string | null
           current_value: number | null
           floor_no: number | null
           id: string
@@ -166,7 +245,9 @@ export type Database = {
           asking_rent?: number | null
           city: string
           cover_image_url?: string | null
+          building_id?: string | null
           created_at?: string
+          entity_id?: string | null
           current_value?: number | null
           floor_no?: number | null
           id?: string
@@ -186,7 +267,9 @@ export type Database = {
           asking_rent?: number | null
           city?: string
           cover_image_url?: string | null
+          building_id?: string | null
           created_at?: string
+          entity_id?: string | null
           current_value?: number | null
           floor_no?: number | null
           id?: string

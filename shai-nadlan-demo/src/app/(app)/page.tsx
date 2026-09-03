@@ -21,8 +21,8 @@ export default async function DashboardPage() {
     timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(now);
 
-  const [{ data: properties }, { data: leases }, { data: latePayments }] = await Promise.all([
-    supabase.from('properties').select('id, name, city, status, current_value, property_type'),
+  const [{ data: properties }, { data: leases }, { data: latePayments }, { data: entities }] = await Promise.all([
+    supabase.from('properties').select('id, name, city, status, current_value, property_type, entity_id'),
     supabase
       .from('leases')
       .select('id, start_date, end_date, monthly_rent, property:properties(id, name, city), tenant:tenants(full_name, phone)')
@@ -38,6 +38,9 @@ export default async function DashboardPage() {
       .lt('due_date', todayIso)
       .eq('lease.status', 'active')
       .order('due_date', { ascending: true }),
+    // "מי מחזיק במה" — Shai's own words at 0:40. Optional layer: when he has
+    // not named any holder, this whole section stays out of the way.
+    supabase.from('owner_entities').select('id, name, entity_type').order('name'),
   ]);
 
   const props = properties ?? [];
@@ -86,6 +89,27 @@ export default async function DashboardPage() {
   }
   const late = [...lateByLease.values()].sort((a, b) => a.oldestDue.localeCompare(b.oldestDue));
   const needsAttention = late.length + expiring.length;
+
+  /* Value and count per holder. Properties with no entity are gathered under
+     one honest "לא צוין" row rather than silently dropped — a portfolio view
+     that hides part of the portfolio is worse than no view. */
+  const holders = (entities ?? []).map((e) => {
+    const owned = props.filter((p) => p.entity_id === e.id);
+    return {
+      id: e.id, name: e.name,
+      count: owned.length,
+      value: owned.reduce((sum, p) => sum + (p.current_value ?? 0), 0),
+    };
+  });
+  const unassigned = props.filter((p) => !p.entity_id);
+  if (holders.length > 0 && unassigned.length > 0) {
+    holders.push({
+      id: 'none', name: 'לא צוין',
+      count: unassigned.length,
+      value: unassigned.reduce((sum, p) => sum + (p.current_value ?? 0), 0),
+    });
+  }
+  holders.sort((a, b) => b.value - a.value);
 
   return (
     <div className="space-y-6">
@@ -220,6 +244,31 @@ export default async function DashboardPage() {
           />
         </div>
       </section>
+
+      {/* ── Who holds what ──────────────────────────────── */}
+      {holders.length > 0 && (
+        <section>
+          <h2 className="text-[15px] font-bold text-label tracking-tight px-1 mb-2">מי מחזיק במה</h2>
+          <div className="bg-surface rounded-2xl border border-separator overflow-hidden">
+            {holders.map((h, i) => (
+              <div
+                key={h.id}
+                className={`flex items-center justify-between gap-3 px-4 py-3 ${i > 0 ? 'border-t border-separator' : ''}`}
+              >
+                <div className="min-w-0">
+                  <p className={`text-[15px] truncate ${h.id === 'none' ? 'text-label-secondary' : 'font-semibold text-label'}`}>
+                    {h.name}
+                  </p>
+                  <p className="text-[13px] text-label-tertiary mt-0.5">
+                    {h.count === 1 ? 'נכס אחד' : `${h.count} נכסים`}
+                  </p>
+                </div>
+                <p className="text-[15px] font-semibold text-label tabular-nums shrink-0">{ILS(h.value)}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Upcoming ────────────────────────────────────── */}
       <Group
