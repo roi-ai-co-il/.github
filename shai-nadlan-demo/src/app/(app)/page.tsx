@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {
   Building2, Wallet, TrendingUp, Landmark,
-  FileText, ChevronLeft, Phone, MessageSquare,
+  FileText, ChevronLeft, Phone, MessageSquare, AlertCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ILS, heDateLong, heDate, daysUntil, waLink } from '@/lib/format';
@@ -14,13 +14,30 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const [{ data: properties }, { data: leases }] = await Promise.all([
+  // Israel-local calendar day: a payment due "today" must not read as late
+  // just because the server sits in UTC.
+  const now = new Date();
+  const todayIso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now);
+
+  const [{ data: properties }, { data: leases }, { data: latePayments }] = await Promise.all([
     supabase.from('properties').select('id, name, city, status, current_value, property_type'),
     supabase
       .from('leases')
       .select('id, start_date, end_date, monthly_rent, property:properties(id, name, city), tenant:tenants(full_name, phone)')
       .eq('status', 'active')
       .order('end_date', { ascending: true }),
+    // Money that is already late outranks a contract that ends later, so the
+    // dashboard has to carry it too — until now it lived only on /leases and
+    // inside a property, which meant nobody saw it without going looking.
+    supabase
+      .from('lease_payments')
+      .select('id, due_date, amount, lease:leases!inner(id, status, property:properties(id, name, city), tenant:tenants(full_name, phone))')
+      .eq('paid', false)
+      .lt('due_date', todayIso)
+      .eq('lease.status', 'active')
+      .order('due_date', { ascending: true }),
   ]);
 
   const props = properties ?? [];
@@ -38,6 +55,38 @@ export default async function DashboardPage() {
     .map((l) => ({ ...l, days: daysUntil(l.end_date) }))
     .filter((l) => l.days <= 90);
 
+  /* One row per lease, not per unpaid month: three late months for the same
+     tenant is one conversation, not three alerts. Keeps the oldest due date,
+     which is what decides how urgent the row is. */
+  type LateGroup = {
+    leaseId: string; propertyId?: string; propertyName?: string;
+    tenantName?: string; tenantPhone?: string | null;
+    months: number; total: number; oldestDue: string;
+  };
+  const lateByLease = new Map<string, LateGroup>();
+  for (const p of latePayments ?? []) {
+    const lease = p.lease as unknown as {
+      id: string;
+      property?: { id: string; name: string } | null;
+      tenant?: { full_name: string; phone: string | null } | null;
+    } | null;
+    if (!lease) continue;
+    const g = lateByLease.get(lease.id) ?? {
+      leaseId: lease.id,
+      propertyId: lease.property?.id,
+      propertyName: lease.property?.name,
+      tenantName: lease.tenant?.full_name,
+      tenantPhone: lease.tenant?.phone ?? null,
+      months: 0, total: 0, oldestDue: p.due_date,
+    };
+    g.months += 1;
+    g.total += p.amount ?? 0;
+    if (p.due_date < g.oldestDue) g.oldestDue = p.due_date;
+    lateByLease.set(lease.id, g);
+  }
+  const late = [...lateByLease.values()].sort((a, b) => a.oldestDue.localeCompare(b.oldestDue));
+  const needsAttention = late.length + expiring.length;
+
   return (
     <div className="space-y-6">
       {/* ── Large title ─────────────────────────────────── */}
@@ -47,16 +96,51 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── What needs a decision, before the numbers ────── */}
-      {expiring.length > 0 && (
+      {needsAttention > 0 && (
         <Group
           title="דורש טיפול"
           action={
             <span className="text-[13px] font-semibold text-danger bg-danger-tint rounded-full px-2.5 py-0.5">
-              {expiring.length}
+              {needsAttention}
             </span>
           }
         >
           <Rows>
+            {/* Late money first: a payment that has not arrived is a problem
+                now, while a contract ending in 80 days is only a reminder. */}
+            {late.slice(0, 3).map((g) => {
+              const daysLate = Math.max(0, -daysUntil(g.oldestDue));
+              return (
+                <div key={g.leaseId} className="flex items-center gap-3 px-4 py-3">
+                  <AlertCircle size={18} strokeWidth={2.2} className="shrink-0 text-danger" />
+                  <Link
+                    href={g.propertyId ? `/properties/${g.propertyId}` : '/leases'}
+                    className="press-row flex-1 min-w-0 -m-1 p-1 rounded-lg"
+                  >
+                    <p className="font-semibold text-[15px] text-label truncate">{g.propertyName ?? 'נכס'}</p>
+                    <p className="text-[13px] text-label-secondary truncate mt-0.5">
+                      {g.tenantName ?? 'שוכר'} · {ILS(g.total)}
+                      {g.months > 1 ? ` · ${g.months} תשלומים` : ''}
+                    </p>
+                  </Link>
+                  <span className="shrink-0 px-2.5 py-1 rounded-full text-[12px] font-semibold text-danger bg-danger-tint">
+                    {daysLate === 0 ? 'באיחור' : `באיחור ${daysLate} ימים`}
+                  </span>
+                  {g.tenantPhone && (
+                    <div className="hidden sm:flex items-center shrink-0">
+                      <a href={waLink(g.tenantPhone)} target="_blank" rel="noreferrer"
+                        className="press touch-target rounded-full text-label-tertiary hover:text-success" title="וואטסאפ לשוכר">
+                        <MessageSquare size={18} strokeWidth={2} />
+                      </a>
+                      <a href={`tel:${g.tenantPhone}`}
+                        className="press touch-target rounded-full text-label-tertiary hover:text-accent" title="התקשר לשוכר">
+                        <Phone size={18} strokeWidth={2} />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {/* Capped so the portfolio numbers stay above the fold on a phone;
                 the full list lives on /leases. */}
             {expiring.slice(0, 4).map((l) => {
@@ -88,12 +172,17 @@ export default async function DashboardPage() {
               );
             })}
           </Rows>
-          {expiring.length > 4 && (
+          {(expiring.length > 4 || late.length > 3) && (
             <Link
               href="/leases"
               className="press-row flex items-center justify-center gap-1 py-3 text-[14px] font-semibold text-accent border-t border-separator"
             >
-              <span>עוד {expiring.length - 4} חוזים</span>
+              <span>
+                {[
+                  late.length > 3 ? `עוד ${late.length - 3} באיחור` : null,
+                  expiring.length > 4 ? `עוד ${expiring.length - 4} חוזים` : null,
+                ].filter(Boolean).join(' · ')}
+              </span>
               <ChevronLeft size={15} strokeWidth={2.5} />
             </Link>
           )}
