@@ -202,6 +202,56 @@ export type Database = {
         }
         Relationships: []
       }
+      property_documents: {
+        Row: {
+          created_at: string
+          doc_date: string | null
+          doc_type: string
+          id: string
+          mime_type: string | null
+          notes: string | null
+          owner: string
+          property_id: string
+          size_bytes: number | null
+          storage_path: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          doc_date?: string | null
+          doc_type?: string
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          owner?: string
+          property_id: string
+          size_bytes?: number | null
+          storage_path: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          doc_date?: string | null
+          doc_type?: string
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          owner?: string
+          property_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_documents_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_images: {
         Row: {
           created_at: string

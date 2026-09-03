@@ -12,6 +12,7 @@ import { StatusBadge, Group, Rows, EmptyState, IconChip } from '@/components/ui'
 import PropertyGallery from '@/components/PropertyGallery';
 import PropertyActions from '@/components/PropertyActions';
 import PaymentsCard from '@/components/PaymentsCard';
+import PropertyDocuments from '@/components/PropertyDocuments';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,13 +28,21 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
 
   if (!property) notFound();
 
-  const [{ data: images }, { data: leases }] = await Promise.all([
+  const [{ data: images }, { data: leases }, { data: documents }] = await Promise.all([
     supabase.from('property_images').select('*').eq('property_id', id).order('sort_order'),
     supabase
       .from('leases')
       .select('*, tenant:tenants(id, full_name, phone, email)')
       .eq('property_id', id)
       .order('end_date', { ascending: false }),
+    // Newest first, but by the date ON the document where there is one — a
+    // contract signed last year matters more than a receipt uploaded today.
+    supabase
+      .from('property_documents')
+      .select('id, title, doc_type, storage_path, mime_type, size_bytes, doc_date, created_at')
+      .eq('property_id', id)
+      .order('doc_date', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false }),
   ]);
 
   const activeLease = (leases ?? []).find((l) => l.status === 'active');
@@ -140,6 +149,10 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
           {activeLease && (payments ?? []).length > 0 && (
             <PaymentsCard payments={(payments ?? []).map((x) => ({ ...x, amount: Number(x.amount) }))} />
           )}
+
+          {/* Always rendered, empty or not: the point is that the seller learns
+              this is where the contract lives, before they need it. */}
+          <PropertyDocuments propertyId={id} documents={documents ?? []} />
         </div>
       </div>
 
