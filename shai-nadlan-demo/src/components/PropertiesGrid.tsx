@@ -21,6 +21,7 @@ type PropertyRow = {
   current_value: number | null;
   asking_rent: number | null;
   cover_image_url: string | null;
+  building: { id: string; name: string } | null;
   leases: { monthly_rent: number; end_date: string; status: string; tenant: { full_name: string; phone: string | null } | null }[];
 };
 
@@ -44,6 +45,27 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
       return true;
     });
   }, [properties, filter, search]);
+
+  /* Group by building only when buildings are actually in use. A portfolio of
+     scattered flats never sees a header — the layer stays invisible instead of
+     wrapping every single property in a section of one. Properties with no
+     building are gathered last, never hidden. */
+  const grouped = useMemo(() => properties.some((p) => p.building), [properties]);
+  const groups = useMemo(() => {
+    if (!grouped) return [{ key: 'all', label: '', items: filtered }];
+    const byBuilding = new Map<string, { key: string; label: string; items: PropertyRow[] }>();
+    const loose: PropertyRow[] = [];
+    for (const p of filtered) {
+      if (!p.building) { loose.push(p); continue; }
+      const g = byBuilding.get(p.building.id)
+        ?? { key: p.building.id, label: p.building.name, items: [] };
+      g.items.push(p);
+      byBuilding.set(p.building.id, g);
+    }
+    const out = [...byBuilding.values()].sort((a, b) => b.items.length - a.items.length);
+    if (loose.length) out.push({ key: 'none', label: 'ללא אתר', items: loose });
+    return out;
+  }, [filtered, grouped]);
 
   return (
     <div className="space-y-4">
@@ -110,8 +132,19 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
           />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
-          {filtered.map((p) => {
+        <div className="space-y-6">
+          {groups.map((g) => (
+            <div key={g.key} className="space-y-3">
+              {grouped && (
+                <div className="flex items-baseline justify-between gap-3 px-1">
+                  <h2 className="text-[15px] font-bold text-label tracking-tight">{g.label}</h2>
+                  <span className="text-[13px] text-label-tertiary shrink-0">
+                    {g.items.length === 1 ? 'נכס אחד' : `${g.items.length} נכסים`}
+                  </span>
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
+          {g.items.map((p) => {
             const activeLease = p.leases.find((l) => l.status === 'active');
             const tenantPhone = activeLease?.tenant?.phone ?? null;
             return (
@@ -195,6 +228,9 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
               </div>
             );
           })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

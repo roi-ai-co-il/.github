@@ -29,9 +29,11 @@ export interface PropertyInitial {
   current_value: number | null;
   notes: string | null;
   entity_id: string | null;
+  building_id: string | null;
 }
 
 type Entity = { id: string; name: string };
+type Building = { id: string; name: string };
 
 /** One form for creating a property and for editing it — same fields, same
     validation, so the two screens can never drift apart. */
@@ -58,6 +60,7 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
     notes: initial?.notes ?? '',
     asking_rent: initial?.asking_rent != null ? String(initial.asking_rent) : '',
     entity_id: initial?.entity_id ?? '',
+    building_id: initial?.building_id ?? '',
   });
 
   /* Who legally holds this property. Shai asked for exactly this at 0:40 —
@@ -65,10 +68,17 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
      always has, so nobody is forced to model ownership before adding a flat. */
   const [entities, setEntities] = useState<Entity[]>([]);
   const [newEntity, setNewEntity] = useState('');
+  /* Buildings group several units at one address. Optional like the entity:
+     a scattered portfolio simply never creates one, and the field is a single
+     line that stays on "לא צוין". */
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [newBuilding, setNewBuilding] = useState('');
   useEffect(() => {
     const supabase = createClient();
     supabase.from('owner_entities').select('id, name').order('name')
       .then(({ data }) => setEntities(data ?? []));
+    supabase.from('buildings').select('id, name').order('name')
+      .then(({ data }) => setBuildings(data ?? []));
   }, []);
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -108,8 +118,24 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
       entityId = created.id;
     }
 
+    let buildingId: string | null = form.building_id || null;
+    const typedBuilding = newBuilding.trim();
+    if (typedBuilding) {
+      const { data: b, error: bErr } = await supabase
+        .from('buildings')
+        .insert({ name: typedBuilding, city: form.city.trim() || null, address: form.address.trim() || null, entity_id: entityId })
+        .select('id').single();
+      if (bErr || !b) {
+        setError('יצירת האתר נכשלה — נסה שוב');
+        setSaving(false);
+        return;
+      }
+      buildingId = b.id;
+    }
+
     const payload = {
       entity_id: entityId,
+      building_id: buildingId,
       name: form.name.trim(),
       address: form.address.trim(),
       city: form.city.trim(),
@@ -218,6 +244,28 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
             aria-label="ישות חדשה"
           />
           <p className="text-[12px] text-label-tertiary mt-1.5 mr-1">אדם או חברה שעל שמם רשום הנכס. אפשר להשאיר ריק.</p>
+        </div>
+
+        <div>
+          <label htmlFor="building_id" className={labelCls}>אתר / בניין</label>
+          <select
+            id="building_id"
+            className={inputCls}
+            value={form.building_id}
+            onChange={(e) => { set('building_id', e.target.value); setNewBuilding(''); }}
+            disabled={newBuilding.trim().length > 0}
+          >
+            <option value="">לא צוין</option>
+            {buildings.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <input
+            className={`${inputCls} mt-2`}
+            value={newBuilding}
+            onChange={(e) => { setNewBuilding(e.target.value); if (e.target.value) set('building_id', ''); }}
+            placeholder="או הקלד שם של אתר חדש"
+            aria-label="אתר חדש"
+          />
+          <p className="text-[12px] text-label-tertiary mt-1.5 mr-1">רק אם יש לך יותר מיחידה אחת באותו בניין. אחרת השאר ריק.</p>
         </div>
 
         <div>
