@@ -3,13 +3,17 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus } from 'lucide-react';
+import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus, LifeBuoy } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
 import AssistantChat from '@/components/AssistantChat';
 import FreshnessGuard from '@/components/FreshnessGuard';
 import PullToRefresh from '@/components/PullToRefresh';
 import { ToastProvider } from '@/components/Toast';
+
+/** Where a fault in this system gets reported. Shai signs in there with a
+ *  one-time code sent to the same address he uses here. */
+const SUPPORT_URL = 'https://tikunim.roiai.co.il';
 
 const NAV_ITEMS = [
   { href: '/', label: 'בית', icon: LayoutGrid },
@@ -156,6 +160,14 @@ export default function AppShell({ children, email, firstName }: {
                 <Plus size={15} strokeWidth={2.5} />
                 <span>נכס חדש</span>
               </Link>
+              <a
+                href={SUPPORT_URL}
+                className="press touch-target rounded-full text-label-secondary hover:text-accent flex items-center justify-center"
+                title="דיווח תקלה"
+                aria-label="דיווח תקלה"
+              >
+                <LifeBuoy size={18} strokeWidth={2} />
+              </a>
               <ThemeToggle />
               <span className="text-[13px] text-label-tertiary hidden lg:inline" dir="ltr">{email}</span>
               <button
