@@ -1,3 +1,4 @@
+import { heDays } from './format';
 export const PROPERTY_TYPES: Record<string, string> = {
   apartment: 'דירה',
   penthouse: 'פנטהאוז',
@@ -28,8 +29,8 @@ export const URGENCY_STYLE: Record<
   string,
   { label: (d: number) => string; text: string; bg: string; bar: string }
 > = {
-  expired:  { label: (d) => `הסתיים לפני ${Math.abs(d)} ימים`, text: 'text-danger',  bg: 'bg-danger-tint',  bar: 'bg-danger' },
-  critical: { label: (d) => (d === 0 ? 'מסתיים היום' : `נותרו ${d} ימים`), text: 'text-danger', bg: 'bg-danger-tint', bar: 'bg-danger' },
-  soon:     { label: (d) => `נותרו ${d} ימים`, text: 'text-warning', bg: 'bg-warning-tint', bar: 'bg-warning' },
-  ok:       { label: (d) => `נותרו ${d} ימים`, text: 'text-success', bg: 'bg-success-tint', bar: 'bg-success' },
+  expired:  { label: (d) => `הסתיים לפני ${heDays(d)}`, text: 'text-danger',  bg: 'bg-danger-tint',  bar: 'bg-danger' },
+  critical: { label: (d) => (d === 0 ? 'מסתיים היום' : `נותרו ${heDays(d)}`), text: 'text-danger', bg: 'bg-danger-tint', bar: 'bg-danger' },
+  soon:     { label: (d) => `נותרו ${heDays(d)}`, text: 'text-warning', bg: 'bg-warning-tint', bar: 'bg-warning' },
+  ok:       { label: (d) => `נותרו ${heDays(d)}`, text: 'text-success', bg: 'bg-success-tint', bar: 'bg-success' },
 };

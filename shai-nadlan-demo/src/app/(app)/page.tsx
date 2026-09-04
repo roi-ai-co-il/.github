@@ -4,7 +4,7 @@ import {
   FileText, ChevronLeft, Phone, MessageSquare, AlertCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { ILS, heDateLong, heDate, daysUntil, waLink } from '@/lib/format';
+import { ILS, heDateLong, heDate, daysUntil, waLink, heDays } from '@/lib/format';
 import { leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
 import { StatCard, Group, Rows, EmptyState } from '@/components/ui';
 import { OccupancyBar } from '@/components/OccupancyBar';
@@ -165,7 +165,7 @@ export default async function DashboardPage() {
                     </p>
                   </Link>
                   <span className="shrink-0 px-2.5 py-1 rounded-full text-[12px] font-semibold text-danger bg-danger-tint">
-                    {daysLate === 0 ? 'באיחור' : `באיחור ${daysLate} ימים`}
+                    {daysLate === 0 ? 'באיחור' : `באיחור ${heDays(daysLate)}`}
                   </span>
                   {g.tenantPhone && (
                     <div className="hidden sm:flex items-center shrink-0">

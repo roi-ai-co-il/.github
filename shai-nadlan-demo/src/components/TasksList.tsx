@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Check, Loader2, Plus, Trash2, CircleCheck, Circle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { heDate, daysUntil } from '@/lib/format';
+import { heDate, daysUntil, heDays } from '@/lib/format';
 import { Group, Rows, EmptyState } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 
@@ -31,10 +31,10 @@ function isoToday(): string {
 function dueLabel(due: string | null): { text: string; tone: string } | null {
   if (!due) return null;
   const d = daysUntil(due);
-  if (d < 0) return { text: `באיחור ${Math.abs(d)} ימים`, tone: 'text-danger' };
+  if (d < 0) return { text: `באיחור ${heDays(d)}`, tone: 'text-danger' };
   if (d === 0) return { text: 'היום', tone: 'text-warning font-semibold' };
   if (d === 1) return { text: 'מחר', tone: 'text-warning' };
-  if (d <= 7) return { text: `בעוד ${d} ימים`, tone: 'text-label-secondary' };
+  if (d <= 7) return { text: `בעוד ${heDays(d)}`, tone: 'text-label-secondary' };
   return { text: heDate(due), tone: 'text-label-tertiary' };
 }
 

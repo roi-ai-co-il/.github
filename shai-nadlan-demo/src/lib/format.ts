@@ -24,3 +24,15 @@ export function daysUntil(date: string): number {
 /** WhatsApp link from an Israeli phone number. */
 export const waLink = (phone: string) =>
   `https://wa.me/${phone.replace(/[^0-9]/g, '').replace(/^0/, '972')}`;
+
+/** Hebrew inflects one, two and many differently, and "1 ימים" is exactly what
+ *  makes an app sound machine-written. One helper so every screen says it the
+ *  same way — the dashboard, the tasks list and the lease badges all used to
+ *  format this themselves. */
+export function heDays(n: number): string {
+  const d = Math.abs(Math.round(n));
+  if (d === 0) return 'היום';
+  if (d === 1) return 'יום אחד';
+  if (d === 2) return 'יומיים';
+  return `${d} ימים`;
+}
