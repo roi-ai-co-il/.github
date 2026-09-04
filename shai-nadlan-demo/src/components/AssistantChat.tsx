@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Sparkles, X, Search, ChevronRight, ChevronLeft, Phone, User, Building2, FileText,
   LayoutGrid, Plus, Wallet, Landmark, KeyRound, CalendarClock, PieChart, Send, CircleDollarSign,
-  History,
+  History, FolderOpen, CalendarDays, CircleCheck, Users, Building, UserRound,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -152,6 +152,12 @@ const ACTIONS: ActionDef[] = [
   { id: 'nav-props', label: 'כל הנכסים', hint: 'רשימת הנכסים המלאה', icon: Building2, group: 'nav', keywords: 'נכסים רשימה דירות', href: '/properties' },
   { id: 'nav-leases', label: 'חוזים', hint: 'כל חוזי השכירות', icon: FileText, group: 'nav', keywords: 'חוזים שכירות רשימה', href: '/leases' },
   { id: 'nav-home', label: 'סקירה', hint: 'מסך הבית', icon: LayoutGrid, group: 'nav', keywords: 'בית דשבורד ראשי סקירה', href: '/' },
+  { id: 'nav-docs', label: 'מסמכים', hint: 'כל המסמכים של כל הנכסים', icon: FolderOpen, group: 'nav', keywords: 'מסמכים ארכיון קבצים חוזה קבלה ענן', href: '/documents' },
+  { id: 'nav-cal', label: 'יומן', hint: 'תשלומים, סופי חוזה ומשימות', icon: CalendarDays, group: 'nav', keywords: 'יומן לוח שנה תאריכים', href: '/calendar' },
+  { id: 'nav-tasks', label: 'משימות', hint: 'מה פתוח', icon: CircleCheck, group: 'nav', keywords: 'משימות טודו לעשות', href: '/tasks' },
+  { id: 'nav-sites', label: 'אתרים', hint: 'בניינים ומתחמים', icon: Building, group: 'nav', keywords: 'אתרים בניינים מתחם', href: '/buildings' },
+  { id: 'nav-entities', label: 'ישויות', hint: 'מי מחזיק במה', icon: Users, group: 'nav', keywords: 'ישויות חברות בעלות מחזיק', href: '/entities' },
+  { id: 'nav-tenants', label: 'שוכרים', hint: 'כל הדיירים', icon: UserRound, group: 'nav', keywords: 'שוכרים דיירים', href: '/tenants' },
 ];
 
 const LOAD_ERROR = 'לא הצלחתי לטעון את הנתונים. בדוק את החיבור ונסה שוב.';

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus, LifeBuoy, CalendarDays, CircleCheck, Users, Building, UserRound } from 'lucide-react';
+import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus, LifeBuoy, CalendarDays, CircleCheck, Users, Building, UserRound, Ellipsis, X, FolderOpen } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
 import AssistantChat from '@/components/AssistantChat';
@@ -19,9 +19,11 @@ const SUPPORT_URL = 'https://tikunim.roiai.co.il';
    daily screens, then the things a portfolio is made of, then the money. Shai
    already reads a menu in that shape every day, so ours should not invent a
    different one.
-   The phone keeps a flat bar of the four most-used plus Add: five is the
-   practical ceiling for a bottom bar, and everything else is one tap from
-   נכסים or from the dashboard. */
+   The phone bar holds the four most-used screens plus "עוד"; five is the
+   practical ceiling for a bottom bar. Everything the bar cannot hold —
+   ישויות, אתרים, שוכרים, חוזים — lives in the sheet behind עוד, in these
+   same groups. Nothing is reachable on the desktop and unreachable on the
+   phone. */
 const NAV_GROUPS = [
   { title: 'כללי', items: [
     { href: '/', label: 'בית', icon: LayoutGrid, onPhone: true },
@@ -37,9 +39,15 @@ const NAV_GROUPS = [
   { title: 'תזרימים', items: [
     { href: '/leases', label: 'חוזים', icon: FileText, onPhone: false },
   ]},
+  { title: 'ארכיון', items: [
+    { href: '/documents', label: 'מסמכים', icon: FolderOpen, onPhone: false },
+  ]},
 ];
 const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 const PHONE_NAV = NAV_ITEMS.filter((i) => i.onPhone);
+/* The screens the bar cannot show: עוד stays lit while you are on one of them,
+   so the phone never claims you are nowhere. */
+const MORE_ONLY = NAV_ITEMS.filter((i) => !i.onPhone);
 
 /** The title the nav bar shows once the page's own large title scrolls away. */
 const BAR_TITLES: Record<string, string> = {
@@ -52,6 +60,7 @@ const BAR_TITLES: Record<string, string> = {
   '/buildings': 'אתרים',
   '/properties/new': 'נכס חדש',
   '/tenants': 'שוכרים',
+  '/documents': 'מסמכים',
 };
 
 function isActive(pathname: string, href: string) {
@@ -94,6 +103,7 @@ export default function AppShell({ children, email, firstName }: {
   const pathname = usePathname();
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // Only the app shell owns an inner scroller; login renders outside it.
   useEffect(() => {
@@ -117,7 +127,17 @@ export default function AppShell({ children, email, firstName }: {
   useEffect(() => {
     document.getElementById('app-scroll')?.scrollTo({ top: 0 });
     setScrolled(false);
+    setMoreOpen(false);
   }, [pathname]);
+
+  // Escape closes the sheet — and a tap on the same screen you are already on
+  // still closes it, because the pathname does not change and nothing else would.
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMoreOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [moreOpen]);
 
   const signOut = async () => {
     const supabase = createClient();
@@ -252,15 +272,88 @@ export default function AppShell({ children, email, firstName }: {
                 </Link>
               );
             })}
-            <Link
-              href="/properties/new"
-              className="press flex flex-col items-center justify-center gap-1 flex-1 min-w-[56px] rounded-[22px] text-label-tertiary"
+            <button
+              type="button"
+              onClick={() => setMoreOpen(true)}
+              aria-expanded={moreOpen}
+              aria-label="עוד מסכים"
+              className={`press flex flex-col items-center justify-center gap-1 flex-1 min-w-[56px] rounded-[22px] ${
+                moreOpen || MORE_ONLY.some((i) => isActive(pathname, i.href)) ? 'text-accent' : 'text-label-tertiary'
+              }`}
             >
-              <Plus size={22} strokeWidth={2.2} />
-              <span className="text-[10px] font-medium tracking-tight">הוספה</span>
-            </Link>
+              <Ellipsis size={22} strokeWidth={moreOpen ? 2.4 : 1.9} />
+              <span className="text-[10px] font-medium tracking-tight">עוד</span>
+            </button>
           </nav>
         </div>
+
+        {/* ── "עוד" ───────────────────────────────────────────
+            Everything the bar could not hold, in the groups the desktop rail
+            uses, so the two shapes of the app teach the same map. */}
+        {moreOpen && (
+          <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+            <button
+              type="button"
+              aria-label="סגירה"
+              onClick={() => setMoreOpen(false)}
+              className="sheet-scrim absolute inset-0 bg-black/30 backdrop-blur-[2px]"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="עוד מסכים"
+              className="sheet-panel relative material rounded-t-[26px] border-t border-separator px-3 pt-2 pb-[calc(14px+env(safe-area-inset-bottom,0px))] max-h-[80dvh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between px-2 pb-1">
+                <span className="text-[17px] font-bold text-label tracking-tight">הכול</span>
+                <button
+                  type="button"
+                  onClick={() => setMoreOpen(false)}
+                  aria-label="סגירה"
+                  className="press touch-target rounded-full text-label-tertiary"
+                >
+                  <X size={19} strokeWidth={2.2} />
+                </button>
+              </div>
+
+              {NAV_GROUPS.map((group, gi) => (
+                <div key={group.title} className={gi > 0 ? 'mt-3' : ''}>
+                  <div className="px-3 pb-1 text-[11px] font-semibold tracking-wide text-label-tertiary">
+                    {group.title}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {group.items.map(({ href, label, icon: Icon }) => {
+                      const active = isActive(pathname, href);
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={() => setMoreOpen(false)}
+                          aria-current={active ? 'page' : undefined}
+                          className={`press flex items-center gap-2.5 px-3 py-3 rounded-2xl text-[15px] font-medium ${
+                            active ? 'bg-accent-tint text-accent' : 'bg-fill/60 text-label'
+                          }`}
+                        >
+                          <Icon size={18} strokeWidth={active ? 2.3 : 2} />
+                          <span>{label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              <Link
+                href="/properties/new"
+                onClick={() => setMoreOpen(false)}
+                className="press flex items-center justify-center gap-2 mt-4 px-3 py-3 rounded-2xl bg-accent text-white text-[15px] font-semibold"
+              >
+                <Plus size={18} strokeWidth={2.5} />
+                <span>נכס חדש</span>
+              </Link>
+            </div>
+          </div>
+        )}
 
         <AssistantChat />
         <FreshnessGuard />

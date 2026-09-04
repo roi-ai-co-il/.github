@@ -296,3 +296,21 @@ body {
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type=number] { -moz-appearance: textfield; }
+
+/* ── The "עוד" sheet ──────────────────────────────────
+   The phone bar holds four screens; the rest live one tap behind it, in the
+   same groups the desktop rail uses. It rises the way an iOS sheet rises. */
+@keyframes sheet-rise {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.sheet-panel { animation: sheet-rise 0.36s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.sheet-scrim { animation: scrim-in 0.28s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-panel, .sheet-scrim { animation-duration: 0.01ms; }
+}
