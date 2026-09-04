@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus, LifeBuoy } from 'lucide-react';
+import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus, LifeBuoy, CalendarDays, CircleCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
 import AssistantChat from '@/components/AssistantChat';
@@ -15,17 +15,25 @@ import { ToastProvider } from '@/components/Toast';
  *  one-time code sent to the same address he uses here. */
 const SUPPORT_URL = 'https://tikunim.roiai.co.il';
 
+/* Desktop shows all five in a right-hand rail. The phone's tab bar takes the
+   four most-used plus Add — five is the practical ceiling for a bottom bar, and
+   חוזים stays one tap away from the dashboard, which links straight to it. */
 const NAV_ITEMS = [
-  { href: '/', label: 'בית', icon: LayoutGrid },
-  { href: '/properties', label: 'נכסים', icon: Building2 },
-  { href: '/leases', label: 'חוזים', icon: FileText },
+  { href: '/', label: 'בית', icon: LayoutGrid, onPhone: true },
+  { href: '/properties', label: 'נכסים', icon: Building2, onPhone: true },
+  { href: '/calendar', label: 'יומן', icon: CalendarDays, onPhone: true },
+  { href: '/tasks', label: 'משימות', icon: CircleCheck, onPhone: true },
+  { href: '/leases', label: 'חוזים', icon: FileText, onPhone: false },
 ];
+const PHONE_NAV = NAV_ITEMS.filter((i) => i.onPhone);
 
 /** The title the nav bar shows once the page's own large title scrolls away. */
 const BAR_TITLES: Record<string, string> = {
   '/': 'סקירה',
   '/properties': 'נכסים',
   '/leases': 'חוזים',
+  '/calendar': 'יומן',
+  '/tasks': 'משימות',
   '/properties/new': 'נכס חדש',
   '/tenants': 'שוכרים',
 };
@@ -135,31 +143,8 @@ export default function AppShell({ children, email, firstName }: {
               </span>
             )}
 
-            <nav className="hidden md:flex items-center gap-1">
-              {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`press flex items-center gap-2 px-3.5 py-2 rounded-xl text-[15px] font-medium ${
-                    isActive(pathname, href)
-                      ? 'bg-accent-tint text-accent'
-                      : 'text-label-secondary hover:bg-fill'
-                  }`}
-                >
-                  <Icon size={17} strokeWidth={2} />
-                  <span>{label}</span>
-                </Link>
-              ))}
-            </nav>
 
             <div className="flex items-center gap-1 md:gap-2 shrink-0">
-              <Link
-                href="/properties/new"
-                className="press hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-accent text-white text-[14px] font-semibold"
-              >
-                <Plus size={15} strokeWidth={2.5} />
-                <span>נכס חדש</span>
-              </Link>
               <a
                 href={SUPPORT_URL}
                 className="press touch-target rounded-full text-label-secondary hover:text-accent flex items-center justify-center"
@@ -182,19 +167,51 @@ export default function AppShell({ children, email, firstName }: {
           </div>
         </header>
 
-        {/* ── Main — the app's single scroll container ───────── */}
-        <main id="app-scroll" className="flex-1 min-h-0 overflow-y-auto overscroll-contain w-full px-4 py-5 md:px-6 md:py-7">
-          <div className="max-w-5xl w-full mx-auto">
-            <PullToRefresh>{children}</PullToRefresh>
-          </div>
-        </main>
+        {/* ── Main ────────────────────────────────────────────
+            On desktop the navigation moves out of the header into a rail on the
+            RIGHT — the start edge in RTL, where the eye lands first and where
+            Nadlanitor puts its own menu. It scrolls with nothing: only the
+            content column scrolls, so the menu is always reachable. */}
+        <div className="flex-1 min-h-0 flex flex-row-reverse w-full max-w-6xl mx-auto">
+          <nav className="hidden md:flex flex-col gap-1 w-[188px] shrink-0 px-3 py-6 border-s border-separator">
+            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+              const active = isActive(pathname, href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`press flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[15px] font-medium ${
+                    active ? 'bg-accent-tint text-accent' : 'text-label-secondary hover:bg-fill'
+                  }`}
+                >
+                  <Icon size={18} strokeWidth={active ? 2.3 : 2} />
+                  <span>{label}</span>
+                </Link>
+              );
+            })}
+            <Link
+              href="/properties/new"
+              className="press flex items-center gap-2.5 px-3 py-2.5 mt-2 rounded-xl bg-accent text-white text-[15px] font-semibold"
+            >
+              <Plus size={18} strokeWidth={2.5} />
+              <span>נכס חדש</span>
+            </Link>
+          </nav>
+
+          <main id="app-scroll" className="flex-1 min-w-0 overflow-y-auto overscroll-contain px-4 py-5 md:px-6 md:py-7">
+            <div className="max-w-4xl w-full mx-auto">
+              <PullToRefresh>{children}</PullToRefresh>
+            </div>
+          </main>
+        </div>
 
         {/* ── Tab bar ────────────────────────────────────────
             Floating glass, but still an ordinary flex child: the drift this
             avoids on iOS comes from `position: fixed`, not from the look. */}
         <div className="md:hidden shrink-0 z-40 px-3 pt-1 pb-[calc(8px+env(safe-area-inset-bottom,0px))]">
           <nav className="material rounded-[26px] border border-separator shadow-lg shadow-black/5 flex items-stretch justify-around h-[58px] px-1">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+            {PHONE_NAV.map(({ href, label, icon: Icon }) => {
               const active = isActive(pathname, href);
               return (
                 <Link
