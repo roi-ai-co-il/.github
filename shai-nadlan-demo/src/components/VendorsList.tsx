@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, Plus, Trash2, Wrench, Search } from 'lucide-react';
+import { Loader2, Plus, Trash2, Wrench, Search, ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Group, Rows, EmptyState } from '@/components/ui';
 import ContactButtons from '@/components/ContactButtons';
@@ -124,12 +125,20 @@ export default function VendorsList({ vendors: initial }: { vendors: VendorRow[]
           <Rows>
             {shown.map((v) => (
               <div key={v.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-semibold text-label truncate">{v.name}</p>
-                  <p className="text-[13px] text-label-secondary truncate mt-0.5">
-                    {[v.trade, v.phone].filter(Boolean).join(' · ')}
-                  </p>
-                </div>
+                {/* The name opens the tradesman — his jobs, what they cost, and
+                    how much of it came off the profit. A row that names
+                    something and leads nowhere is the same defect that shipped
+                    once already in אתרים. */}
+                <Link href={`/vendors/${v.id}`}
+                  className="press-row min-w-0 flex-1 flex items-center gap-2 -m-1 p-1 rounded-lg">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-semibold text-label truncate">{v.name}</p>
+                    <p className="text-[13px] text-label-secondary truncate mt-0.5">
+                      {[v.trade, v.phone].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <ChevronLeft size={17} className="shrink-0 text-label-tertiary" />
+                </Link>
                 {v.phone && <ContactButtons phone={v.phone} name={v.name} compact />}
                 <button type="button" onClick={() => setPendingDelete(v)} disabled={busyId === v.id}
                   aria-label={`מחק את ${v.name}`}

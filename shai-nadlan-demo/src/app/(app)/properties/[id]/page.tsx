@@ -13,6 +13,8 @@ import PropertyGallery from '@/components/PropertyGallery';
 import PropertyActions from '@/components/PropertyActions';
 import PaymentsCard from '@/components/PaymentsCard';
 import PropertyDocuments from '@/components/PropertyDocuments';
+import RepairsList from '@/components/RepairsList';
+import type { RepairRow } from '@/lib/repairs';
 import CpiUpdateButton from '@/components/CpiUpdateButton';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +31,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
 
   if (!property) notFound();
 
-  const [{ data: images }, { data: leases }, { data: documents }] = await Promise.all([
+  const [{ data: images }, { data: leases }, { data: documents }, { data: repairs }, { data: vendors }] = await Promise.all([
     supabase.from('property_images').select('*').eq('property_id', id).order('sort_order'),
     supabase
       .from('leases')
@@ -44,6 +46,15 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
       .eq('property_id', id)
       .order('doc_date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false }),
+    // Repairs on this property, open ones first. This is where the seller
+    // actually is when something breaks, so it is where recording it belongs.
+    supabase
+      .from('repairs')
+      .select('id, property_id, vendor_id, title, trade, reported_on, done_on, cost, charge_mode, tenant_share, tenant_charge, owner_cost, notes, property:properties(id, name), vendor:vendors(id, name, trade)')
+      .eq('property_id', id)
+      .order('done_on', { ascending: true, nullsFirst: true })
+      .order('reported_on', { ascending: false }),
+    supabase.from('vendors').select('id, name, trade').order('name'),
   ]);
 
   const activeLease = (leases ?? []).find((l) => l.status === 'active');
@@ -185,6 +196,16 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
           <PropertyDocuments propertyId={id} documents={documents ?? []} />
         </div>
       </div>
+
+      {/* ── Repairs ─────────────────────────────────────── */}
+      <RepairsList
+        repairs={(repairs ?? []) as unknown as RepairRow[]}
+        properties={[{ id, name: property.name }]}
+        vendors={vendors ?? []}
+        lockedPropertyId={id}
+        heading="תיקונים"
+        sub="מה התקלקל כאן, מי תיקן, וכמה זה עלה לך בפועל"
+      />
 
       {/* ── Lease history ───────────────────────────────── */}
       {(leases ?? []).length > 1 && (

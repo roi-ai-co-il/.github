@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus, LifeBuoy, CalendarDays, CircleCheck, Users, Building, UserRound, Ellipsis, X, FolderOpen, CircleDollarSign, Wrench, Settings, Search } from 'lucide-react';
+import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus, LifeBuoy, CalendarDays, CircleCheck, Users, Building, UserRound, Ellipsis, X, FolderOpen, CircleDollarSign, Wrench, Hammer, Settings, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
 import AssistantChat from '@/components/AssistantChat';
@@ -41,6 +41,7 @@ const NAV_GROUPS = [
     { href: '/leases', label: 'חוזים', icon: FileText, onPhone: false },
   ]},
   { title: 'אחזקה', items: [
+    { href: '/repairs', label: 'תיקונים', icon: Hammer, onPhone: false },
     { href: '/vendors', label: 'בעלי מקצוע', icon: Wrench, onPhone: false },
   ]},
   { title: 'ארכיון', items: [
@@ -53,21 +54,18 @@ const PHONE_NAV = NAV_ITEMS.filter((i) => i.onPhone);
    so the phone never claims you are nowhere. */
 const MORE_ONLY = NAV_ITEMS.filter((i) => !i.onPhone);
 
-/** The title the nav bar shows once the page's own large title scrolls away. */
+/**
+ * The title the nav bar shows once the page's own large title scrolls away.
+ *
+ * Derived from the nav itself, so a screen added to NAV_GROUPS cannot end up
+ * with a blank bar — this used to be a second hand-written list of the same
+ * labels, and a second list is a second thing to forget.
+ */
 const BAR_TITLES: Record<string, string> = {
-  '/': 'סקירה',
-  '/properties': 'נכסים',
-  '/leases': 'חוזים',
-  '/calendar': 'יומן',
-  '/tasks': 'משימות',
-  '/entities': 'ישויות',
-  '/buildings': 'אתרים',
+  ...Object.fromEntries(NAV_ITEMS.map((i) => [i.href, i.label])),
+  '/': 'סקירה',              // the nav says בית, the bar says what you're looking at
   '/properties/new': 'נכס חדש',
-  '/tenants': 'שוכרים',
-  '/documents': 'מסמכים',
-  '/collection': 'גבייה',
-  '/vendors': 'בעלי מקצוע',
-  '/settings': 'הגדרות',
+  '/settings': 'הגדרות',      // reachable from the header, not from the nav
 };
 
 function isActive(pathname: string, href: string) {

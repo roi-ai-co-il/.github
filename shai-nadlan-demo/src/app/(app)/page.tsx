@@ -2,11 +2,12 @@ import Link from 'next/link';
 import {
   Building2, Wallet, TrendingUp, Landmark,
   FileText, ChevronLeft, Phone, MessageSquare, AlertCircle, ShieldAlert,
-  UploadCloud, Plus,
+  UploadCloud, Plus, Hammer, HandCoins,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ILS, heDateLong, heDate, daysUntil, waLink, heDays } from '@/lib/format';
 import { leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
+import { money } from '@/lib/repairs';
 import { StatCard, Group, Rows, EmptyState } from '@/components/ui';
 import IncomeChart, { type MonthPoint } from '@/components/IncomeChart';
 import { OccupancyBar } from '@/components/OccupancyBar';
@@ -67,6 +68,14 @@ export default async function DashboardPage() {
       .order('due_date'),
   ]);
 
+  /* Twelve months of repairs. `owner_cost` is what actually came off the
+     profit — a figure the database derives from "who pays", so this screen
+     cannot disagree with /תיקונים or with the property's own page. */
+  const { data: repairYear } = await supabase
+    .from('repairs')
+    .select('cost, owner_cost, tenant_charge, done_on')
+    .gte('reported_on', yearAgoIso);
+
   const leaseNoticeDays = notice?.lease_notice_days ?? 90;
   const insNoticeDays = notice?.insurance_notice_days ?? 30;
 
@@ -101,6 +110,22 @@ export default async function DashboardPage() {
   const grossYield = totalValue != null && totalValue > 0
     ? ((monthlyIncome * 12) / totalValue) * 100
     : null;
+
+  /* A repair whose invoice has not arrived is counted as an open question,
+     never as ₪0 — quoting a net figure that quietly assumes three unknown
+     invoices were free is worse than saying how many are missing. */
+  const repairs = repairYear ?? [];
+  let repairsOffProfit = 0;
+  let repairsFromTenants = 0;
+  let repairsUnpriced = 0;
+  for (const r of repairs) {
+    if (money(r.cost) == null) { repairsUnpriced += 1; continue; }
+    repairsOffProfit += money(r.owner_cost) ?? 0;
+    repairsFromTenants += money(r.tenant_charge) ?? 0;
+  }
+  const openRepairs = repairs.filter((r) => r.done_on == null).length;
+  const annualIncome = monthlyIncome * 12;
+  const netAfterRepairs = annualIncome - repairsOffProfit;
 
   const expiring = activeLeases
     .map((l) => ({ ...l, days: daysUntil(l.end_date) }))
@@ -362,9 +387,46 @@ export default async function DashboardPage() {
                 tone="info"
                 sub={grossYield == null ? 'צריך שווי נוכחי' : 'שנתית'}
               />
-              <StatCard title="הכנסה שנתית" value={ILS(monthlyIncome * 12)} icon={FileText} tone="neutral" />
+              <StatCard
+                title="הכנסה שנתית"
+                value={ILS(annualIncome)}
+                icon={FileText}
+                tone="neutral"
+                sub={repairsOffProfit > 0 ? `${ILS(netAfterRepairs)} אחרי תיקונים` : undefined}
+              />
             </div>
           </section>
+
+          {/* Only once there is something to say. An empty system does not need
+              a maintenance panel of two zeros. */}
+          {repairs.length > 0 && (
+            <section>
+              <div className="flex items-baseline justify-between gap-3 px-1 mb-2">
+                <h2 className="text-[15px] font-bold text-label tracking-tight">אחזקה · 12 חודשים</h2>
+                <Link href="/repairs" className="press text-[13px] font-semibold text-accent">
+                  כל התיקונים
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <StatCard
+                  title="ירד מהרווח"
+                  value={ILS(repairsOffProfit)}
+                  icon={Hammer}
+                  tone="danger"
+                  sub={repairsUnpriced > 0
+                    ? `${repairsUnpriced} עוד בלי חשבונית`
+                    : openRepairs > 0 ? `${openRepairs} תיקונים פתוחים` : undefined}
+                />
+                <StatCard
+                  title="נגבה מהדיירים"
+                  value={ILS(repairsFromTenants)}
+                  icon={HandCoins}
+                  tone="success"
+                  sub={repairsFromTenants === 0 ? 'הכל היה על חשבונך' : undefined}
+                />
+              </div>
+            </section>
+          )}
 
           <IncomeChart points={incomePoints} />
         </>

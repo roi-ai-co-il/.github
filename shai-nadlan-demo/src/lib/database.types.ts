@@ -548,6 +548,74 @@ export type Database = {
           },
         ]
       }
+      repairs: {
+        Row: {
+          charge_mode: string
+          cost: number | null
+          created_at: string
+          done_on: string | null
+          id: string
+          notes: string | null
+          owner: string
+          owner_cost: number | null
+          property_id: string
+          reported_on: string
+          tenant_charge: number | null
+          tenant_share: number | null
+          title: string
+          trade: string | null
+          updated_at: string
+          vendor_id: string | null
+        }
+        Insert: {
+          charge_mode?: string
+          cost?: number | null
+          created_at?: string
+          done_on?: string | null
+          id?: string
+          notes?: string | null
+          owner?: string
+          property_id: string
+          reported_on?: string
+          tenant_share?: number | null
+          title: string
+          trade?: string | null
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Update: {
+          charge_mode?: string
+          cost?: number | null
+          created_at?: string
+          done_on?: string | null
+          id?: string
+          notes?: string | null
+          owner?: string
+          property_id?: string
+          reported_on?: string
+          tenant_share?: number | null
+          title?: string
+          trade?: string | null
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repairs_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repairs_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendors: {
         Row: {
           created_at: string

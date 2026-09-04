@@ -17,16 +17,52 @@
  */
 
 import { chromium } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadSession, sessionCookie, projectEnv } from './qa-session.mjs';
 
 const BASE = process.env.BASE ?? 'http://localhost:3100';
 
-const STATIC_ROUTES = [
-  '/', '/calendar', '/tasks', '/entities', '/buildings', '/properties',
-  '/tenants', '/collection', '/leases', '/vendors', '/documents', '/settings',
-  '/properties/new', '/properties/import',
-];
+/**
+ * The route list is read off the filesystem, never typed here.
+ *
+ * It used to be a hand-written array, and the two screens added most recently
+ * — /buildings/<id> and /entities/<id> — were simply absent from it: the gate
+ * reported "18/18 screens loaded cleanly" while covering neither. A list of
+ * what to test that a human maintains is a list that goes stale exactly when
+ * new code arrives, which is when it matters. Walking `src/app` means a new
+ * page.tsx is covered the moment it exists.
+ */
+function routesOnDisk(dir, prefix = '') {
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name === 'page.tsx') out.push(prefix || '/');
+    if (!entry.isDirectory()) continue;
+    const seg = entry.name;
+    /* (app) and the like are grouping folders — they carry no URL segment. */
+    const next = seg.startsWith('(') ? prefix : `${prefix}/${seg}`;
+    out.push(...routesOnDisk(join(dir, seg), next));
+  }
+  return out;
+}
+
+const APP_DIR = new URL('../src/app', import.meta.url);
+const discovered = routesOnDisk(APP_DIR.pathname);
+
+/* /login and /maintenance are the two screens a signed-in user must NOT see —
+ * they redirect, so loading them here proves nothing about them. They have
+ * their own gate in qa-auth.mjs. */
+const NOT_FOR_A_SIGNED_IN_USER = ['/login', '/maintenance'];
+
+const STATIC_ROUTES = discovered
+  .filter((r) => !r.includes('['))
+  .filter((r) => !NOT_FOR_A_SIGNED_IN_USER.includes(r))
+  .sort();
+
+/* Every dynamic segment must be filled in by parameterisedRoutes() below. A
+ * new [id] screen that nobody taught this script about is a gap in the gate,
+ * so it is named and the run fails rather than passing quietly. */
+const DYNAMIC_ROUTES = discovered.filter((r) => r.includes('['));
 
 /**
  * The screens that only exist for a specific row — a property, its edit form,
@@ -44,10 +80,25 @@ async function parameterisedRoutes(headers) {
   };
   const [prop] = await get('properties?select=id&limit=1');
   const [payment] = await get('lease_payments?select=id&paid=eq.true&limit=1');
-  const routes = [];
-  if (prop) routes.push(`/properties/${prop.id}`, `/properties/${prop.id}/edit`, `/properties/${prop.id}/lease`);
-  if (payment) routes.push(`/receipt/${payment.id}`);
-  return routes;
+  const [building] = await get('buildings?select=id&limit=1');
+  const [entity] = await get('owner_entities?select=id&limit=1');
+  const [vendor] = await get('vendors?select=id&limit=1');
+
+  /* Keyed by the template path, so the coverage check below can tell three
+   * states apart: a screen reached, a screen this script knows how to reach
+   * but has no row for yet, and a screen nobody taught it about at all. Only
+   * the last one is a bug in the gate. */
+  const filled = new Map();
+  const empty = new Set();
+  const put = (template, url) => (url ? filled.set(template, url) : empty.add(template));
+  put('/properties/[id]', prop && `/properties/${prop.id}`);
+  put('/properties/[id]/edit', prop && `/properties/${prop.id}/edit`);
+  put('/properties/[id]/lease', prop && `/properties/${prop.id}/lease`);
+  put('/receipt/[paymentId]', payment && `/receipt/${payment.id}`);
+  put('/buildings/[id]', building && `/buildings/${building.id}`);
+  put('/entities/[id]', entity && `/entities/${entity.id}`);
+  put('/vendors/[id]', vendor && `/vendors/${vendor.id}`);
+  return { filled, empty };
 }
 
 /* React shouts about these in dev and they are not what this gate is for. */
@@ -58,7 +109,16 @@ if (!envFile) throw new Error('usage: smoke-routes.mjs <session.env>');
 const session = await loadSession(envFile);
 const access_token = session.access_token;
 
-const extra = await parameterisedRoutes({ apikey: projectEnv().key, Authorization: `Bearer ${access_token}` });
+const { filled, empty } = await parameterisedRoutes({
+  apikey: projectEnv().key, Authorization: `Bearer ${access_token}`,
+});
+
+/* A dynamic screen this script has no way to build a URL for is uncovered, and
+ * an uncovered screen must not read as a pass — that is exactly how
+ * /buildings/[id] slipped through while the run printed 18/18. No DATA is a
+ * skip; no recipe is a failure of the gate itself. */
+const noRecipe = DYNAMIC_ROUTES.filter((t) => !filled.has(t) && !empty.has(t));
+const extra = [...filled.values()];
 const ROUTES = [...STATIC_ROUTES, ...extra];
 if (!extra.length) console.log('(no rows yet — the per-row screens were skipped)');
 
@@ -106,7 +166,17 @@ for (const route of ROUTES) {
 
 await browser.close();
 console.log(`\n${passed}/${ROUTES.length} screens loaded cleanly against ${BASE}`);
+if (empty.size) {
+  console.log(`(skipped for lack of a row: ${[...empty].join(', ')})`);
+}
 if (failures.length) {
   for (const f of failures) for (const p of f.problems) console.error(`  ✗ ${f.route}: ${p}`);
+  process.exit(1);
+}
+if (noRecipe.length) {
+  console.error(
+    `\nUNCOVERED — ${noRecipe.length} dynamic screen(s) exist that this gate ` +
+    `cannot reach:\n${noRecipe.map((r) => `  ✗ ${r}`).join('\n')}\n` +
+    `Teach parameterisedRoutes() how to build a URL for each.`);
   process.exit(1);
 }
