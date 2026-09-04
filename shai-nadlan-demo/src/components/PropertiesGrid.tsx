@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Building2, Search, BedDouble, Ruler, Plus, X } from 'lucide-react';
+import { Building2, Search, BedDouble, Ruler, Plus, X, LayoutGrid, Rows3 } from 'lucide-react';
 import { ILS } from '@/lib/format';
 import { PROPERTY_TYPES } from '@/lib/domain';
 import { StatusBadge, EmptyState } from '@/components/ui';
@@ -34,6 +34,22 @@ const FILTERS = [
 ];
 
 export default function PropertiesGrid({ properties }: { properties: PropertyRow[] }) {
+  /* Grid or table. Nadlanitor offers the same choice and Shai uses it — at
+     portfolio scale a sortable table is the only way to compare flats, while
+     the grid is better for a handful. Remembered per device, because whichever
+     one he prefers he will want every time. */
+  const [view, setView] = useState<'grid' | 'table'>('grid');
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('properties.view');
+      if (v === 'table' || v === 'grid') setView(v);
+    } catch { /* private mode — the default is fine */ }
+  }, []);
+  const setViewPersisted = (v: 'grid' | 'table') => {
+    setView(v);
+    try { localStorage.setItem('properties.view', v); } catch { /* ignore */ }
+  };
+
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -106,6 +122,27 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
         )}
       </div>
 
+      {/* ── Grid / table ─────────────────────────────────── */}
+      <div className="flex items-center gap-1 bg-surface-sunken rounded-xl p-1 w-max">
+        {([
+          { key: 'grid',  label: 'רשת',  icon: LayoutGrid },
+          { key: 'table', label: 'טבלה', icon: Rows3 },
+        ] as const).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setViewPersisted(key)}
+            aria-pressed={view === key}
+            className={`press flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors ${
+              view === key ? 'bg-surface text-label shadow-sm' : 'text-label-secondary'
+            }`}
+          >
+            <Icon size={15} strokeWidth={2.2} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </div>
+
       {/* ── Filter chips ────────────────────────────────── */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
         {FILTERS.map((f) => (
@@ -143,6 +180,55 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
                   </span>
                 </div>
               )}
+              {view === 'table' ? (
+                /* Scrolls inside its own container so the page body never
+                   scrolls sideways on a phone. */
+                <div className="bg-surface rounded-2xl border border-separator overflow-x-auto">
+                  <table className="w-full min-w-[560px] text-[14px] border-collapse">
+                    <thead>
+                      <tr className="text-[12px] text-label-tertiary">
+                        <th className="text-start font-medium px-4 py-2.5">נכס</th>
+                        <th className="text-start font-medium px-3 py-2.5">מצב</th>
+                        <th className="text-start font-medium px-3 py-2.5">שוכר</th>
+                        <th className="text-start font-medium px-3 py-2.5 tabular-nums">שכר דירה</th>
+                        <th className="text-start font-medium px-3 py-2.5 tabular-nums">מחיר למ״ר</th>
+                        <th className="text-start font-medium px-4 py-2.5 tabular-nums">שווי</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {g.items.map((p) => {
+                        const lease = p.leases.find((l) => l.status === 'active');
+                        const rent = lease?.monthly_rent ?? p.asking_rent ?? null;
+                        // Derived, exactly as on the property page — never a stored copy.
+                        const perSqm = rent != null && p.area_sqm ? Math.round(rent / p.area_sqm) : null;
+                        return (
+                          <tr key={p.id} className="border-t border-separator">
+                            <td className="px-4 py-3">
+                              <Link href={`/properties/${p.id}`} className="press-row block -m-1 p-1 rounded-lg">
+                                <span className="block font-semibold text-label truncate">{p.name}</span>
+                                <span className="block text-[12.5px] text-label-tertiary truncate mt-0.5">{p.city}</span>
+                              </Link>
+                            </td>
+                            <td className="px-3 py-3"><StatusBadge status={p.status} /></td>
+                            <td className="px-3 py-3 text-label-secondary truncate">
+                              {lease?.tenant?.full_name ?? '—'}
+                            </td>
+                            <td className="px-3 py-3 tabular-nums whitespace-nowrap">
+                              {rent != null ? ILS(rent) : '—'}
+                            </td>
+                            <td className="px-3 py-3 tabular-nums whitespace-nowrap text-label-secondary">
+                              {perSqm != null ? ILS(perSqm) : '—'}
+                            </td>
+                            <td className="px-4 py-3 tabular-nums whitespace-nowrap">
+                              {p.current_value != null ? ILS(p.current_value) : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
           {g.items.map((p) => {
             const activeLease = p.leases.find((l) => l.status === 'active');
@@ -229,6 +315,7 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
             );
           })}
               </div>
+              )}
             </div>
           ))}
         </div>
