@@ -1,0 +1,880 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.17"
+  }
+  public: {
+    Tables: {
+      import_batches: {
+        Row: {
+          counts: Json
+          created_at: string
+          filename: string | null
+          id: string
+          owner: string
+          source: string
+          undone_at: string | null
+        }
+        Insert: {
+          counts?: Json
+          created_at?: string
+          filename?: string | null
+          id?: string
+          owner?: string
+          source?: string
+          undone_at?: string | null
+        }
+        Update: {
+          counts?: Json
+          created_at?: string
+          filename?: string | null
+          id?: string
+          owner?: string
+          source?: string
+          undone_at?: string | null
+        }
+        Relationships: []
+      }
+      lease_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          due_date: string
+          id: string
+          lease_id: string
+          owner: string
+          paid: boolean
+          paid_date: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          due_date: string
+          id?: string
+          lease_id: string
+          owner?: string
+          paid?: boolean
+          paid_date?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          due_date?: string
+          id?: string
+          lease_id?: string
+          owner?: string
+          paid?: boolean
+          paid_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lease_payments_lease_id_fkey"
+            columns: ["lease_id"]
+            isOneToOne: false
+            referencedRelation: "leases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leases: {
+        Row: {
+          cpi_updated_on: string | null
+          created_at: string
+          deposit: number | null
+          deposit_received: boolean
+          end_date: string
+          id: string
+          import_batch_id: string | null
+          linked_to_cpi: boolean
+          monthly_rent: number
+          notes: string | null
+          owner: string
+          payment_day: number
+          property_id: string
+          start_date: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          cpi_updated_on?: string | null
+          created_at?: string
+          deposit?: number | null
+          deposit_received?: boolean
+          end_date: string
+          id?: string
+          import_batch_id?: string | null
+          linked_to_cpi?: boolean
+          monthly_rent: number
+          notes?: string | null
+          owner?: string
+          payment_day?: number
+          property_id: string
+          start_date: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          cpi_updated_on?: string | null
+          created_at?: string
+          deposit?: number | null
+          deposit_received?: boolean
+          end_date?: string
+          id?: string
+          import_batch_id?: string | null
+          linked_to_cpi?: boolean
+          monthly_rent?: number
+          notes?: string | null
+          owner?: string
+          payment_day?: number
+          property_id?: string
+          start_date?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leases_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leases_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leases_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolio_members: {
+        Row: {
+          created_at: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      buildings: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          entity_id: string | null
+          id: string
+          name: string
+          notes: string | null
+          owner: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          owner?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          owner?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buildings_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "owner_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_entities: {
+        Row: {
+          created_at: string
+          entity_type: string
+          id: string
+          name: string
+          notes: string | null
+          owner: string
+          tax_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entity_type?: string
+          id?: string
+          name: string
+          notes?: string | null
+          owner?: string
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entity_type?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          owner?: string
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      properties: {
+        Row: {
+          address: string
+          area_sqm: number | null
+          asking_rent: number | null
+          city: string
+          cover_image_url: string | null
+          building_id: string | null
+          created_at: string
+          entity_id: string | null
+          current_value: number | null
+          floor_no: number | null
+          id: string
+          import_batch_id: string | null
+          insurance_expires_on: string | null
+          insurer: string | null
+          name: string
+          notes: string | null
+          owner: string
+          property_type: string
+          purchase_date: string | null
+          purchase_price: number | null
+          rooms: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          area_sqm?: number | null
+          asking_rent?: number | null
+          city: string
+          cover_image_url?: string | null
+          building_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          current_value?: number | null
+          floor_no?: number | null
+          id?: string
+          import_batch_id?: string | null
+          insurance_expires_on?: string | null
+          insurer?: string | null
+          name: string
+          notes?: string | null
+          owner?: string
+          property_type: string
+          purchase_date?: string | null
+          purchase_price?: number | null
+          rooms?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          area_sqm?: number | null
+          asking_rent?: number | null
+          city?: string
+          cover_image_url?: string | null
+          building_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          current_value?: number | null
+          floor_no?: number | null
+          id?: string
+          import_batch_id?: string | null
+          insurance_expires_on?: string | null
+          insurer?: string | null
+          name?: string
+          notes?: string | null
+          owner?: string
+          property_type?: string
+          purchase_date?: string | null
+          purchase_price?: number | null
+          rooms?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "properties_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "properties_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "owner_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_documents: {
+        Row: {
+          created_at: string
+          doc_date: string | null
+          doc_type: string
+          id: string
+          mime_type: string | null
+          notes: string | null
+          owner: string
+          property_id: string
+          size_bytes: number | null
+          storage_path: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          doc_date?: string | null
+          doc_type?: string
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          owner?: string
+          property_id: string
+          size_bytes?: number | null
+          storage_path: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          doc_date?: string | null
+          doc_type?: string
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          owner?: string
+          property_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_documents_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_images: {
+        Row: {
+          created_at: string
+          id: string
+          owner: string
+          property_id: string
+          sort_order: number
+          storage_path: string | null
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner?: string
+          property_id: string
+          sort_order?: number
+          storage_path?: string | null
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner?: string
+          property_id?: string
+          sort_order?: number
+          storage_path?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_images_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      digest_settings: {
+        Row: {
+          enabled: boolean
+          greeting_name: string
+          id: boolean
+          insurance_notice_days: number
+          last_request_id: number | null
+          last_sent_at: string | null
+          last_status: string | null
+          lease_notice_days: number
+          recipient: string
+          send_dow: number
+          sender: string
+        }
+        Insert: {
+          enabled?: boolean
+          greeting_name?: string
+          id?: boolean
+          insurance_notice_days?: number
+          last_request_id?: number | null
+          last_sent_at?: string | null
+          last_status?: string | null
+          lease_notice_days?: number
+          recipient: string
+          send_dow?: number
+          sender?: string
+        }
+        Update: {
+          enabled?: boolean
+          greeting_name?: string
+          id?: boolean
+          insurance_notice_days?: number
+          last_request_id?: number | null
+          last_sent_at?: string | null
+          last_status?: string | null
+          lease_notice_days?: number
+          recipient?: string
+          send_dow?: number
+          sender?: string
+        }
+        Relationships: []
+      }
+      receipts: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          issued_at: string
+          issuer_name: string
+          number: number
+          owner: string
+          paid_date: string | null
+          payment_id: string
+          period_label: string
+          property_address: string | null
+          property_name: string
+          tenant_name: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          issued_at?: string
+          issuer_name: string
+          number?: number
+          owner?: string
+          paid_date?: string | null
+          payment_id: string
+          period_label: string
+          property_address?: string | null
+          property_name: string
+          tenant_name: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          issued_at?: string
+          issuer_name?: string
+          number?: number
+          owner?: string
+          paid_date?: string | null
+          payment_id?: string
+          period_label?: string
+          property_address?: string | null
+          property_name?: string
+          tenant_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: true
+            referencedRelation: "lease_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      repairs: {
+        Row: {
+          charge_mode: string
+          cost: number | null
+          created_at: string
+          done_on: string | null
+          id: string
+          notes: string | null
+          owner: string
+          owner_cost: number | null
+          property_id: string
+          reported_on: string
+          tenant_charge: number | null
+          tenant_share: number | null
+          title: string
+          trade: string | null
+          updated_at: string
+          vendor_id: string | null
+        }
+        Insert: {
+          charge_mode?: string
+          cost?: number | null
+          created_at?: string
+          done_on?: string | null
+          id?: string
+          notes?: string | null
+          owner?: string
+          property_id: string
+          reported_on?: string
+          tenant_share?: number | null
+          title: string
+          trade?: string | null
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Update: {
+          charge_mode?: string
+          cost?: number | null
+          created_at?: string
+          done_on?: string | null
+          id?: string
+          notes?: string | null
+          owner?: string
+          property_id?: string
+          reported_on?: string
+          tenant_share?: number | null
+          title?: string
+          trade?: string | null
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repairs_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repairs_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          owner: string
+          phone: string | null
+          trade: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          owner?: string
+          phone?: string | null
+          trade?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          owner?: string
+          phone?: string | null
+          trade?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          created_at: string
+          done: boolean
+          done_at: string | null
+          due_date: string | null
+          id: string
+          notes: string | null
+          owner: string
+          property_id: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          done?: boolean
+          done_at?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          owner?: string
+          property_id?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          done?: boolean
+          done_at?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          owner?: string
+          property_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          import_batch_id: string | null
+          notes: string | null
+          owner: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          import_batch_id?: string | null
+          notes?: string | null
+          owner?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          import_batch_id?: string | null
+          notes?: string | null
+          owner?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenants_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      is_portfolio_member: { Args: never; Returns: boolean }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

@@ -1,0 +1,365 @@
+@import "tailwindcss";
+
+/* ── Hide scrollbar utility ──────────────────────── */
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ── Safe areas (iPhone notch / home indicator) ──────── */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.safe-top { padding-top: env(safe-area-inset-top, 0px); }
+
+/* ── App shell: the DOCUMENT never scrolls inside the app ──
+   The shell is exactly one viewport tall, only `main` scrolls, and the
+   tab bar is an ordinary flex child that cannot detach from the bottom.
+   Scoped to `.app-shell-locked` so the login page keeps normal scrolling. */
+html, body { height: 100%; }
+body.app-shell-locked { overflow: hidden; overscroll-behavior: none; }
+
+/* ── iOS input zoom guard ─────────────────────────────
+   iOS Safari auto-zooms when a focused input's font-size is under 16px. */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ── Design tokens — iOS system language ──────────────
+   Surfaces are white, structure comes from hairline separators and a
+   single accent, the way iOS does it. Values follow Apple's system
+   palette so the app feels native next to the phone's own UI. */
+@theme {
+  /* Surfaces */
+  --color-canvas:        #FFFFFF;  /* the page */
+  --color-surface:       #FFFFFF;  /* cards */
+  --color-surface-sunken: #F2F2F7; /* iOS systemGroupedBackground — inputs, chips */
+  --color-surface-raised: #FFFFFF;
+  --color-fill:          #78788020; /* iOS tertiary fill */
+
+  /* Text */
+  --color-label:           #000000;
+  --color-label-secondary: #3C3C4399;  /* 60% */
+  --color-label-tertiary:  #3C3C434D;  /* 30% */
+
+  /* Hairlines — iOS separators are thin and low-contrast on purpose */
+  --color-separator: #3C3C431F;
+  --color-border:    #3C3C4326;
+
+  /* Chrome material. The saturation is the ingredient people leave out:
+     iOS pulls colour THROUGH the blur, which is why its bars look alive
+     over a photo instead of like frosted plastic. */
+  --color-material: #FFFFFFB8;
+
+  /* Accent + semantics (iOS system colours) */
+  --color-accent:      #007AFF;
+  --color-accent-dark: #0062CC;
+  --color-success:     #34C759;
+  --color-warning:     #FF9500;
+  --color-danger:      #FF3B30;
+  --color-info:        #5856D6;
+  --color-neutral:     #8E8E93;
+
+  /* Tinted backgrounds for badges and icon chips */
+  --color-accent-tint:  #007AFF14;
+  --color-success-tint: #34C75914;
+  --color-warning-tint: #FF950014;
+  --color-danger-tint:  #FF3B3014;
+  --color-info-tint:    #5856D614;
+
+  /* iOS uses the system face; Heebo carries the Hebrew at matching weights. */
+  --font-family-app: var(--font-heebo), -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+}
+
+/* ── Dark mode ────────────────────────────────────────
+   True black canvas with elevated near-black cards, as iOS does on OLED. */
+.dark {
+  --color-canvas:         #000000;
+  --color-surface:        #1C1C1E;
+  --color-surface-sunken: #1C1C1E;
+  --color-surface-raised: #2C2C2E;
+  --color-fill:           #7878805C;
+
+  --color-label:           #FFFFFF;
+  --color-label-secondary: #EBEBF599;
+  --color-label-tertiary:  #EBEBF54D;
+
+  --color-separator: #54545899;
+  --color-border:    #54545866;
+  --color-material: #16161AC7;
+
+  --color-accent:      #0A84FF;
+  --color-accent-dark: #409CFF;
+  --color-success:     #30D158;
+  --color-warning:     #FF9F0A;
+  --color-danger:      #FF453A;
+  --color-info:        #5E5CE6;
+
+  --color-accent-tint:  #0A84FF26;
+  --color-success-tint: #30D15826;
+  --color-warning-tint: #FF9F0A26;
+  --color-danger-tint:  #FF453A26;
+  --color-info-tint:    #5E5CE626;
+}
+
+/* ── Base ─────────────────────────────────────────── */
+body {
+  font-family: var(--font-family-app);
+  background-color: var(--color-canvas);
+  color: var(--color-label);
+  direction: rtl;
+  overscroll-behavior-y: contain;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  /* iOS sets tight tracking on its display text; Heebo needs the same nudge
+     to stop Hebrew headings reading loose next to native UI. */
+  letter-spacing: -0.01em;
+}
+
+/* ── Scrollbar — thin and unobtrusive, like iOS overlay bars ──── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-label-tertiary); border-radius: 3px; }
+
+/* ── Chrome material ──────────────────────────────────
+   Blur alone reads as frosted plastic. Saturation is what makes a bar
+   look like iOS glass: colour from the content behind bleeds through it.
+   Where the browser cannot do it, the token's own alpha keeps the bar
+   opaque enough to stay legible. */
+.material {
+  background-color: var(--color-material);
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .material {
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+  }
+}
+
+/* The scroll-edge hairline. iOS shows no separator under a bar until the
+   content actually slides beneath it — the line is a depth cue, not a
+   border, so it has no business being there at rest. */
+.edge-line {
+  box-shadow: 0 0.5px 0 0 var(--color-separator);
+  transition: box-shadow 0.25s ease;
+}
+.edge-line-hidden { box-shadow: 0 0.5px 0 0 transparent; }
+
+/* Large title collapsing into the bar. Both halves cross-fade on the same
+   curve so the eye reads one object moving, not two swapping. */
+.title-swap {
+  transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ── Press feedback ───────────────────────────────────
+   iOS shrinks and dims a control under the finger rather than using hover. */
+.press {
+  transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1), opacity 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.press:active { transform: scale(0.97); opacity: 0.85; }
+
+.press-row {
+  transition: background-color 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.press-row:active { background-color: var(--color-fill); }
+
+/* Swipe is a touch gesture, so the rows that hide their actions behind one
+   must keep them visible wherever there is no touch. Width is the wrong test
+   for that — a narrow laptop window has a mouse — so ask about the pointer. */
+@media (hover: none) and (pointer: coarse) {
+  .pointer-only { display: none !important; }
+}
+
+/* ── Touch target (Apple's 44pt minimum) ──────────────── */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+/* This has to be INSIDE a layer, and :where() alone was not enough.
+   `@import "tailwindcss"` declares the layer order, and an unlayered rule
+   beats every layered one no matter how low its specificity — so a plain
+   `.touch-target { display: inline-flex }` in this file was silently winning
+   over `md:hidden`, and a button meant for phones rendered on every screen.
+   In `components` the utilities layer outranks it again, which is the whole
+   point of a utility.
+
+   Everything else in this file is still unlayered. That is a latent version
+   of the same trap for any custom class that sets a property a Tailwind
+   utility also sets. */
+@layer components {
+  .touch-target {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* A filter chip reads well at 32px and is awkward to hit with a thumb. The
+     taller target is given only to coarse pointers, so the density on a mouse
+     screen is untouched — asking about the pointer rather than the width,
+     because a narrow laptop window still has a mouse.
+     Inside the layer on purpose: an unlayered rule here would outrank every
+     Tailwind utility, which is exactly how a button once rendered on screens
+     it was told to hide from. */
+  @media (hover: none) and (pointer: coarse) {
+    .chip-target {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
+}
+
+/* ── Entrance motion ──────────────────────────────────
+   One spring curve everywhere, so the app moves like a single system. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stagger > * { animation: rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger > *:nth-child(2) { animation-delay: 0.06s; }
+.stagger > *:nth-child(3) { animation-delay: 0.1s; }
+.stagger > *:nth-child(4) { animation-delay: 0.14s; }
+.stagger > *:nth-child(5) { animation-delay: 0.18s; }
+.stagger > *:nth-child(6) { animation-delay: 0.22s; }
+.stagger > *:nth-child(7) { animation-delay: 0.26s; }
+.stagger > *:nth-child(8) { animation-delay: 0.3s; }
+
+@keyframes fade-scale {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-in { animation: fade-scale 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* ── Welcome sequence ─────────────────────────────────
+   Overshoot on the mark, then a settled rise for the words — the timing
+   Apple uses when an app introduces itself. */
+@keyframes welcome-mark {
+  0%   { opacity: 0; transform: scale(0.55); }
+  55%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes welcome-line {
+  from { opacity: 0; transform: translateY(14px); filter: blur(6px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+@keyframes welcome-ring {
+  0%   { opacity: 0.5; transform: scale(0.8); }
+  100% { opacity: 0; transform: scale(2.1); }
+}
+@keyframes welcome-exit {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(1.04); }
+}
+.welcome-mark { animation: welcome-mark 0.75s cubic-bezier(0.34, 1.4, 0.5, 1) both; }
+.welcome-ring { animation: welcome-ring 1.5s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both; }
+.welcome-line-1 { animation: welcome-line 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.32s both; }
+.welcome-line-2 { animation: welcome-line 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.46s both; }
+.welcome-line-3 { animation: welcome-line 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both; }
+.welcome-out { animation: welcome-exit 0.45s cubic-bezier(0.4, 0, 1, 1) both; }
+
+/* ── Code verified ────────────────────────────────────
+   Deliberately unhurried. The ring draws first, the check follows it, and
+   only then do the words arrive — a confirmation that lands too fast reads
+   as a page flicker rather than as an answer to what the person just did.
+   `--dash` is the path length, set inline per shape so one keyframe can
+   draw both the ring and the tick. */
+@keyframes verify-disc {
+  0%   { opacity: 0; transform: scale(0.6); }
+  60%  { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes verify-draw {
+  from { stroke-dashoffset: var(--dash); }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes verify-ring {
+  0%   { opacity: 0.45; transform: scale(0.85); }
+  100% { opacity: 0; transform: scale(2.2); }
+}
+@keyframes verify-line {
+  from { opacity: 0; transform: translateY(12px); filter: blur(5px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+.verify-disc   { animation: verify-disc 0.7s cubic-bezier(0.34, 1.4, 0.5, 1) both; }
+.verify-circle { stroke-dasharray: var(--dash); animation: verify-draw 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.10s both; }
+.verify-check  { stroke-dasharray: var(--dash); animation: verify-draw 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.62s both; }
+.verify-ring   { animation: verify-ring 1.35s cubic-bezier(0.16, 1, 0.3, 1) 0.75s both; }
+.verify-line-1 { animation: verify-line 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.95s both; }
+.verify-line-2 { animation: verify-line 0.55s cubic-bezier(0.16, 1, 0.3, 1) 1.12s both; }
+
+/* Motion is decoration here; the content is identical without it. */
+@media (prefers-reduced-motion: reduce) {
+  .stagger > *,
+  .animate-in,
+  .welcome-mark,
+  .welcome-ring,
+  .welcome-line-1,
+  .welcome-line-2,
+  .welcome-line-3,
+  .welcome-out,
+  .verify-disc,
+  .verify-circle,
+  .verify-check,
+  .verify-ring,
+  .verify-line-1,
+  .verify-line-2 {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+    stroke-dashoffset: 0;
+  }
+  /* The pulse has no still form worth showing. */
+  .verify-ring { opacity: 0; }
+  .press, .press:active, .press-row, .press-row:active {
+    transition: none;
+    transform: none;
+  }
+  .title-swap, .edge-line { transition: none; }
+}
+
+/* ── Hide number input spin buttons ───────────────────── */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+
+/* ── The "עוד" sheet ──────────────────────────────────
+   The phone bar holds four screens; the rest live one tap behind it, in the
+   same groups the desktop rail uses. It rises the way an iOS sheet rises. */
+@keyframes sheet-rise {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.sheet-panel { animation: sheet-rise 0.36s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.sheet-scrim { animation: scrim-in 0.28s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-panel, .sheet-scrim { animation-duration: 0.01ms; }
+}
+
+/* ── Printing an אסמכתה ───────────────────────────────────
+   Only the document prints. Hiding by visibility rather than display keeps
+   the receipt's own layout intact — display:none on an ancestor would take
+   the receipt with it. */
+@media print {
+  body * { visibility: hidden; }
+  #receipt-print, #receipt-print * { visibility: visible; }
+  #receipt-print {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    color: #000;
+  }
+  @page { size: A4; margin: 14mm; }
+}
