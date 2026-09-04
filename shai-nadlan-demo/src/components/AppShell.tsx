@@ -206,7 +206,7 @@ export default function AppShell({ children, email, firstName }: {
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('open-search'))}
                 aria-label="חיפוש"
-                className="press md:hidden touch-target rounded-full text-label-secondary hover:text-accent flex items-center justify-center"
+                className="press md:hidden touch-target rounded-full text-label-secondary hover:text-accent"
               >
                 <Search size={18} strokeWidth={2} />
               </button>
