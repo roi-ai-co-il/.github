@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus, LifeBuoy, CalendarDays, CircleCheck } from 'lucide-react';
+import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus, LifeBuoy, CalendarDays, CircleCheck, Users, Building, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
 import AssistantChat from '@/components/AssistantChat';
@@ -15,16 +15,30 @@ import { ToastProvider } from '@/components/Toast';
  *  one-time code sent to the same address he uses here. */
 const SUPPORT_URL = 'https://tikunim.roiai.co.il';
 
-/* Desktop shows all five in a right-hand rail. The phone's tab bar takes the
-   four most-used plus Add — five is the practical ceiling for a bottom bar, and
-   חוזים stays one tap away from the dashboard, which links straight to it. */
-const NAV_ITEMS = [
-  { href: '/', label: 'בית', icon: LayoutGrid, onPhone: true },
-  { href: '/properties', label: 'נכסים', icon: Building2, onPhone: true },
-  { href: '/calendar', label: 'יומן', icon: CalendarDays, onPhone: true },
-  { href: '/tasks', label: 'משימות', icon: CircleCheck, onPhone: true },
-  { href: '/leases', label: 'חוזים', icon: FileText, onPhone: false },
+/* Grouped exactly the way Nadlanitor groups its own rail — "כללי" over the
+   daily screens, then the things a portfolio is made of, then the money. Shai
+   already reads a menu in that shape every day, so ours should not invent a
+   different one.
+   The phone keeps a flat bar of the four most-used plus Add: five is the
+   practical ceiling for a bottom bar, and everything else is one tap from
+   נכסים or from the dashboard. */
+const NAV_GROUPS = [
+  { title: 'כללי', items: [
+    { href: '/', label: 'בית', icon: LayoutGrid, onPhone: true },
+    { href: '/calendar', label: 'יומן', icon: CalendarDays, onPhone: true },
+    { href: '/tasks', label: 'משימות', icon: CircleCheck, onPhone: true },
+  ]},
+  { title: 'התיק', items: [
+    { href: '/entities', label: 'ישויות', icon: Users, onPhone: false },
+    { href: '/buildings', label: 'אתרים', icon: Building, onPhone: false },
+    { href: '/properties', label: 'נכסים', icon: Building2, onPhone: true },
+    { href: '/tenants', label: 'שוכרים', icon: UserRound, onPhone: false },
+  ]},
+  { title: 'תזרימים', items: [
+    { href: '/leases', label: 'חוזים', icon: FileText, onPhone: false },
+  ]},
 ];
+const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 const PHONE_NAV = NAV_ITEMS.filter((i) => i.onPhone);
 
 /** The title the nav bar shows once the page's own large title scrolls away. */
@@ -34,6 +48,8 @@ const BAR_TITLES: Record<string, string> = {
   '/leases': 'חוזים',
   '/calendar': 'יומן',
   '/tasks': 'משימות',
+  '/entities': 'ישויות',
+  '/buildings': 'אתרים',
   '/properties/new': 'נכס חדש',
   '/tenants': 'שוכרים',
 };
@@ -173,23 +189,32 @@ export default function AppShell({ children, email, firstName }: {
             Nadlanitor puts its own menu. It scrolls with nothing: only the
             content column scrolls, so the menu is always reachable. */}
         <div className="flex-1 min-h-0 flex flex-row-reverse w-full max-w-6xl mx-auto">
-          <nav className="hidden md:flex flex-col gap-1 w-[188px] shrink-0 px-3 py-6 border-s border-separator">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-              const active = isActive(pathname, href);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  aria-current={active ? 'page' : undefined}
-                  className={`press flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[15px] font-medium ${
-                    active ? 'bg-accent-tint text-accent' : 'text-label-secondary hover:bg-fill'
-                  }`}
-                >
-                  <Icon size={18} strokeWidth={active ? 2.3 : 2} />
-                  <span>{label}</span>
-                </Link>
-              );
-            })}
+          <nav className="hidden md:flex flex-col w-[188px] shrink-0 px-3 py-5 border-s border-separator">
+            {NAV_GROUPS.map((group, gi) => (
+              <div key={group.title} className={gi > 0 ? 'mt-4' : ''}>
+                <div className="px-3 pb-1 text-[11px] font-semibold tracking-wide text-label-tertiary">
+                  {group.title}
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  {group.items.map(({ href, label, icon: Icon }) => {
+                    const active = isActive(pathname, href);
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        aria-current={active ? 'page' : undefined}
+                        className={`press flex items-center gap-2.5 px-3 py-2 rounded-xl text-[15px] font-medium ${
+                          active ? 'bg-accent-tint text-accent' : 'text-label-secondary hover:bg-fill'
+                        }`}
+                      >
+                        <Icon size={17} strokeWidth={active ? 2.3 : 2} />
+                        <span>{label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
             <Link
               href="/properties/new"
               className="press flex items-center gap-2.5 px-3 py-2.5 mt-2 rounded-xl bg-accent text-white text-[15px] font-semibold"
