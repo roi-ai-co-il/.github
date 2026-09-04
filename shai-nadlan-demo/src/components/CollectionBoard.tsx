@@ -122,8 +122,27 @@ export default function CollectionBoard({ rows: initial, monthIso, todayIso }: {
           tone === 'late' ? 'text-danger' : tone === 'paid' ? 'text-success' : 'text-label'
         }`}>{ILS(r.amount)}</span>
 
-        {/* On a wide screen the actions sit on the row; on a phone they live
-            under the swipe, so the row itself stays uncluttered. */}
+        {/* Sending the reminder is the whole point of this screen, and a phone
+            is where it gets sent — so on a phone the WhatsApp button is on the
+            row, visible. It used to live only under the swipe, which is an iOS
+            convention with no affordance: nothing on screen said the row could
+            be dragged, so the one action that matters was invisible. The rest
+            (mark paid, receipt) stay under the swipe, where discovering them
+            late costs nothing. */}
+        {!r.paid && r.tenantPhone && (
+          <a
+            href={`${waLink(r.tenantPhone)}?text=${encodeURIComponent(reminderText(r))}`}
+            target="_blank" rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`תזכורת ל${r.tenantName}`}
+            className="press md:hidden touch-target shrink-0 w-10 h-10 rounded-full bg-[#25D366] text-white flex items-center justify-center"
+          >
+            <WhatsAppIcon size={18} />
+          </a>
+        )}
+
+        {/* On a wide screen the actions sit on the row; on a phone the rest of
+            them live under the swipe. */}
         <span className="hidden md:flex items-center gap-1.5 shrink-0">
           {!r.paid && r.tenantPhone && (
             <a href={`${waLink(r.tenantPhone)}?text=${encodeURIComponent(reminderText(r))}`}

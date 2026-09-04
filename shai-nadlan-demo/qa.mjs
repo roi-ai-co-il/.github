@@ -2,22 +2,38 @@
 // Prints PASS/FAIL per check; exits 1 on any FAIL. Never prints secrets.
 // All mutations are tagged "בדיקת-QA" and cleaned up in a finally block;
 // the cleanup manifest is written BEFORE each mutation, not after.
-// Requirements: `.env.local` with the two public Supabase vars (vercel env
-// pull), and the service-role key in env SHAI_SERVICE_KEY (or a file path in
-// SHAI_SERVICE_KEY_FILE containing `SHAI_SERVICE_KEY=...`).
+//
+//   node qa.mjs <session.env> [base-url]
+//
+// The session file holds SUPABASE_ACCESS_TOKEN / SUPABASE_REFRESH_TOKEN and is
+// refreshed on every run — see scripts/qa-session.mjs. It replaces the
+// service-role key this suite used to demand: the key is not in .env.local and
+// not in Vercel, so the whole suite simply could not run, which is worse than
+// having no suite at all. Everything here now reads through the OWNER's own
+// RLS-scoped session, which is also a better test — it exercises the same path
+// the app takes.
+//
+// One section still genuinely needs the service key, because it creates a
+// second user: set SHAI_SERVICE_KEY to run it, or it reports itself SKIPPED by
+// name rather than passing quietly. The anonymous half of that boundary is
+// covered without any key by scripts/qa-auth.mjs.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from '@playwright/test';
+import { loadSession, projectEnv } from './scripts/qa-session.mjs';
 
 const dir = new URL('.', import.meta.url).pathname;
-const envLocal = readFileSync(dir + '.env.local', 'utf8');
-const get = (s, n) => s.match(new RegExp(`^${n}="?([^"\n]+)"?$`, 'm'))?.[1];
-const SUPA = get(envLocal, 'NEXT_PUBLIC_SUPABASE_URL');
-const ANON = get(envLocal, 'NEXT_PUBLIC_SUPABASE_ANON_KEY');
-const KEY = process.env.SHAI_SERVICE_KEY
-  ?? get(readFileSync(process.env.SHAI_SERVICE_KEY_FILE ?? dir + '../../shai-service.env', 'utf8'), 'SHAI_SERVICE_KEY');
-const BASE = process.argv[2] || 'https://shai-nadlan-demo-three.vercel.app';
+const SESSION_FILE = process.argv[2];
+if (!SESSION_FILE || SESSION_FILE.startsWith('http')) {
+  console.error('usage: node qa.mjs <session.env> [base-url]');
+  process.exit(2);
+}
+const { url: SUPA, key: ANON } = projectEnv();
+const KEY = process.env.SHAI_SERVICE_KEY ?? null;   // optional, one section only
+const BASE = process.argv[3] || 'https://shai-nadlan-demo-three.vercel.app';
 const OWNER_EMAIL = 'royiargamanx@gmail.com';
 const MANIFEST = dir + '../../qa-manifest.json';
+
+const session = await loadSession(SESSION_FILE);
 
 const results = [];
 const check = (name, cond, extra = '') => {
@@ -25,25 +41,53 @@ const check = (name, cond, extra = '') => {
   console.log(`${cond ? 'PASS' : 'FAIL'} — ${name}${!cond && extra ? `  [${extra}]` : ''}`);
 };
 
-const svcHeaders = { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
-const rest = async (path) => (await fetch(`${SUPA}/rest/v1/${path}`, { headers: svcHeaders })).json();
+const svcHeaders = KEY
+  ? { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' }
+  : null;
+/* Reads run as the owner. RLS scopes them to the same rows the app sees, so a
+   policy that quietly stopped returning data would fail this suite instead of
+   being masked by a key that ignores RLS entirely. */
+const ownerHeaders = {
+  apikey: ANON, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json',
+};
+const rest = async (path) => {
+  const r = await fetch(`${SUPA}/rest/v1/${path}`, { headers: ownerHeaders });
+  return r.ok ? r.json() : [];
+};
 
+const skip = (name, why) => {
+  results.push({ name, ok: true, skipped: true });
+  console.log(`SKIP — ${name}  [${why}]`);
+};
+
+/** Only used by the foreign-user section, which needs the service key. */
 async function mintSession(email) {
+  if (!svcHeaders) return null;
   const lj = await (await fetch(`${SUPA}/auth/v1/admin/generate_link`, {
     method: 'POST', headers: svcHeaders,
     body: JSON.stringify({ type: 'magiclink', email }),
   })).json();
   const th = lj.properties?.hashed_token ?? lj.hashed_token;
   if (!th) return null;
-  const s = await (await fetch(`${SUPA}/auth/v1/verify`, {
-    method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' },
+  const s2 = await (await fetch(`${SUPA}/auth/v1/verify`, {
+    method: 'POST', headers: { apikey: ANON, 'Content-Type': 'application/json' },
     body: JSON.stringify({ type: 'magiclink', token_hash: th }),
   })).json();
-  return s.access_token ? s : null;
+  return s2.access_token ? s2 : null;
 }
-const cookieOf = (session) => ({
-  name: `sb-${new URL(SUPA).hostname.split('.')[0]}-auth-token`,
-  value: 'base64-' + Buffer.from(JSON.stringify(session), 'utf8').toString('base64url'),
+
+/* The owner's cookie is built once, by the session helper. The old version
+   JSON-stringified whatever it was handed, which quietly worked while that was
+   a plain session object from the admin API and threw the moment it was a
+   client-backed one. Building it in one place removes the question. */
+const ownerCookie = {
+  name: session.cookieName, value: session.cookieValue,
+  domain: new URL(BASE).hostname, path: '/',
+};
+/* Only the foreign-user section still builds its own, from a plain session. */
+const cookieOf = (raw) => ({
+  name: session.cookieName,
+  value: 'base64-' + Buffer.from(JSON.stringify(raw), 'utf8').toString('base64url'),
   domain: new URL(BASE).hostname, path: '/',
 });
 const digits = (s) => (s ?? '').replace(/\D/g, '');
@@ -109,6 +153,13 @@ try {
   await anonCtx.close();
 
   // ════ 2. FOREIGN USER (security) ═══════════════════════════
+  // Creating a second user is the one thing here that cannot be done as the
+  // owner. Without the key this reports itself skipped BY NAME — a security
+  // check that silently passes when it did not run is worse than none.
+  if (!svcHeaders) {
+    skip('2.1 foreign user session kicked to /login by middleware', 'no SHAI_SERVICE_KEY — cannot create a second user');
+    skip('2.2 RLS: foreign user sees 0 properties', 'no SHAI_SERVICE_KEY — cannot create a second user');
+  } else {
   writeFileSync(MANIFEST, JSON.stringify({ foreignEmail: 'qa-foreign@example.com' }));
   const cu = await (await fetch(`${SUPA}/auth/v1/admin/users`, {
     method: 'POST', headers: svcHeaders,
@@ -132,12 +183,12 @@ try {
   } else {
     check('2.1 foreign user session kicked to /login by middleware', false, 'could not create/mint foreign user');
   }
+  }
 
   // ════ 3. OWNER — DESKTOP ═══════════════════════════════════
-  const session = await mintSession(OWNER_EMAIL);
-  check('3.0 owner session minted', !!session);
+  check('3.0 owner session loaded', !!session.access_token && session.email === OWNER_EMAIL, session.email ?? 'no email');
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
-  await ctx.addCookies([cookieOf(session)]);
+  await ctx.addCookies([ownerCookie]);
   const page = await ctx.newPage();
   const consoleErrors = [];
   const failedReqs = [];
@@ -157,16 +208,39 @@ try {
   // 3.2 Properties list + filters + search
   await page.goto(BASE + '/properties', { waitUntil: 'networkidle' });
   check('3.2a properties count line matches DB', (await page.locator('body').innerText()).includes(`${GT.propCount} נכסים`));
-  const cards = () => page.locator('a[href^="/properties/"]:not([href$="/new"])').count();
+  /* Count real property cards, which are the links whose href ends in a uuid.
+     The old selector was "anything under /properties/ that is not /new", so the
+     moment a second header link appeared — ייבוא מאקסל — every count on this
+     screen was one too high and the detail test clicked the import screen
+     instead of a property. Matching the SHAPE of a property link cannot drift
+     when another button is added next to it. */
+  const CARD = /\/properties\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  const cards = () => page.evaluate(
+    (re) => [...document.querySelectorAll('a[href^="/properties/"]')]
+      .filter((a) => new RegExp(re).test(a.getAttribute('href') ?? '')).length,
+    CARD.source);
+  const firstCardHref = () => page.evaluate(
+    (re) => [...document.querySelectorAll('a[href^="/properties/"]')]
+      .map((a) => a.getAttribute('href') ?? '')
+      .find((h) => new RegExp(re).test(h)) ?? null,
+    CARD.source);
   const allCards = await cards();
   check('3.2b grid shows all properties', allCards === GT.propCount, `${allCards} vs ${GT.propCount}`);
   await page.getByRole('button', { name: 'פנויים', exact: true }).click();
   await page.waitForTimeout(400);
   check('3.2c filter פנויים shows exactly the vacant ones', (await cards()) === GT.vacant, `${await cards()} vs ${GT.vacant}`);
   await page.getByRole('button', { name: 'הכל', exact: true }).click();
-  await page.getByLabel('חיפוש נכס').fill('רוטשילד');
+  /* How many the search SHOULD find is a property of the data, not a constant.
+     "1" was true of the seed deleted in August and is 6 today. */
+  const TERM = 'רוטשילד';
+  const searchable = await rest('properties?select=name,address,city');
+  const expectHits = searchable.filter(
+    (r) => `${r.name} ${r.address} ${r.city}`.includes(TERM)).length;
+  await page.getByLabel('חיפוש נכס').fill(TERM);
   await page.waitForTimeout(400);
-  check('3.2d search רוטשילד finds 1', (await cards()) === 1, `${await cards()}`);
+  const hits = await cards();
+  check(`3.2d search ${TERM} finds what the DB says it should`,
+    hits === expectHits, `${hits} vs ${expectHits}`);
   const brokenImgs = await page.evaluate(() =>
     [...document.querySelectorAll('img')].filter((i) => i.complete && i.naturalWidth === 0).length);
   check('3.2e no broken images on properties grid', brokenImgs === 0, `${brokenImgs} broken`);
@@ -174,11 +248,21 @@ try {
 
   // 3.3 Property detail — wait for the client-side navigation itself,
   // not for network idle (which is satisfied by the list page).
-  await page.locator('a[href^="/properties/"]:not([href$="/new"])').first().click();
+  await page.goto(BASE + (await firstCardHref()), { waitUntil: 'domcontentloaded' });
   await page.waitForURL(/\/properties\/[0-9a-f-]{36}/, { timeout: 15000 });
   await page.waitForLoadState('networkidle');
   const detailBody = await page.locator('body').innerText();
-  check('3.3a detail shows facts (rooms, value)', detailBody.includes('חדרים') && detailBody.includes('4,500,000'));
+  /* Assert against THIS property's own stored value, read back by id. The
+     literal that used to sit here — 4,500,000 — belonged to seed data deleted
+     in August, so the check could only ever fail once the data moved on. A
+     number typed into a test is a second copy of the truth. */
+  const detailId = page.url().split('/').pop();
+  const [detailRow] = await rest(`properties?select=current_value,rooms&id=eq.${detailId}`);
+  const expectValue = detailRow?.current_value != null
+    ? Number(detailRow.current_value).toLocaleString('he-IL') : null;
+  check('3.3a detail shows facts (rooms, value)',
+    detailBody.includes('חדרים') && (expectValue === null || detailBody.includes(expectValue)),
+    `expected ${expectValue ?? '(no value stored)'}`);
   check('3.3b active lease panel with tenant + contact', detailBody.includes('חוזה שכירות') && (await page.locator('a[href^="tel:"]').count()) > 0 && (await page.locator('a[href*="wa.me"]').count()) > 0);
   await page.screenshot({ path: dir + '../../qa-3-detail.png' });
   const nf = await page.goto(BASE + '/properties/00000000-0000-0000-0000-000000000000', { waitUntil: 'domcontentloaded' });
@@ -206,7 +290,11 @@ try {
 
   // Image upload on the QA property (storage + RLS path)
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
-  const fileInput = page.locator('input[type=file]');
+  /* Name the gallery's own input. `input[type=file]` matched exactly one
+     control when this was written; the documents cloud added a second, and the
+     locator then refused to act at all rather than picking the wrong one —
+     which is the good failure mode, but it stops the suite dead. */
+  const fileInput = page.locator('input[type=file][accept="image/*"]');
   if (await fileInput.count()) {
     await fileInput.setInputFiles({ name: 'qa.png', mimeType: 'image/png', buffer: png });
     await page.waitForTimeout(5000);
@@ -239,7 +327,28 @@ try {
 
   // payment schedule born with the lease + one-tap mark-as-paid
   const sched = await rest(`lease_payments?select=id,paid&lease_id=eq.${dbLease[0].id}`);
-  check('3.45a2 monthly payment schedule generated with the lease', sched.length === 12, `rows: ${sched.length}`);
+  /* One row per due month, from the first payment day on or after the start
+     through to the end. Twelve was right for the lease the old seed happened
+     to create and is wrong for any other, so the rule is applied rather than
+     its answer remembered. */
+  const [schedLease] = await rest(`leases?select=start_date,end_date,payment_day&id=eq.${dbLease[0].id}`);
+  const expectedSchedule = (() => {
+    if (!schedLease) return null;
+    const pad = (n) => String(n).padStart(2, '0');
+    const day = Math.min(Math.max(schedLease.payment_day ?? 1, 1), 28);
+    let [y, m] = schedLease.start_date.split('-').map(Number);
+    let due = `${y}-${pad(m)}-${pad(day)}`;
+    if (due < schedLease.start_date) { m += 1; if (m > 12) { m = 1; y += 1; } due = `${y}-${pad(m)}-${pad(day)}`; }
+    let n = 0;
+    while (due <= schedLease.end_date && n < 36) {
+      n += 1; m += 1; if (m > 12) { m = 1; y += 1; }
+      due = `${y}-${pad(m)}-${pad(day)}`;
+    }
+    return n;
+  })();
+  check('3.45a2 monthly payment schedule generated with the lease',
+    expectedSchedule !== null && sched.length === expectedSchedule,
+    `rows: ${sched.length}, expected ${expectedSchedule}`);
   await page.getByRole('button', { name: 'שולם', exact: true }).first().click();
   await page.waitForTimeout(1200);
   const paidNow = await rest(`lease_payments?select=id&lease_id=eq.${dbLease[0].id}&paid=eq.true`);
@@ -349,7 +458,7 @@ try {
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true,
     userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
   });
-  await mCtx.addCookies([cookieOf(session)]);
+  await mCtx.addCookies([ownerCookie]);
   const mp = await mCtx.newPage();
   await mp.goto(BASE + '/', { waitUntil: 'networkidle' });
   await mp.waitForTimeout(3500);
@@ -375,18 +484,31 @@ try {
 
 } finally {
   // ════ CLEANUP — always runs ════════════════════════════════
+  /* The cleanup deletes as the OWNER. It used to use the service key, and when
+     that key stopped being available the cleanup did not fail loudly — it threw
+     inside `finally` on a null headers object and left a QA property sitting in
+     the live portfolio. A cleanup that depends on a credential the run does not
+     otherwise need is a cleanup that will one day not run. */
   if (qaPropertyId) {
     const imgs = await rest(`property_images?select=storage_path&property_id=eq.${qaPropertyId}`).catch(() => []);
     for (const im of imgs) {
       if (im.storage_path) {
-        await fetch(`${SUPA}/storage/v1/object/property-images/${im.storage_path}`, { method: 'DELETE', headers: svcHeaders }).catch(() => {});
+        await fetch(`${SUPA}/storage/v1/object/property-images/${im.storage_path}`,
+          { method: 'DELETE', headers: ownerHeaders }).catch(() => {});
       }
     }
-    await fetch(`${SUPA}/rest/v1/properties?id=eq.${qaPropertyId}`, { method: 'DELETE', headers: svcHeaders });
+    await fetch(`${SUPA}/rest/v1/properties?id=eq.${qaPropertyId}`,
+      { method: 'DELETE', headers: ownerHeaders }).catch(() => {});
   }
-  await fetch(`${SUPA}/rest/v1/tenants?full_name=eq.${encodeURIComponent('שוכר בדיקת QA')}`, { method: 'DELETE', headers: svcHeaders }).catch(() => {});
-  if (foreignUserId) {
-    await fetch(`${SUPA}/auth/v1/admin/users/${foreignUserId}`, { method: 'DELETE', headers: svcHeaders });
+  /* Sweep by NAME as well as by id: a run that died between creating the row
+     and recording its id would otherwise leave it behind forever, which is
+     exactly what happened once. */
+  await fetch(`${SUPA}/rest/v1/properties?name=eq.${encodeURIComponent('בדיקת QA אוטומטית')}`,
+    { method: 'DELETE', headers: ownerHeaders }).catch(() => {});
+  await fetch(`${SUPA}/rest/v1/tenants?full_name=eq.${encodeURIComponent('שוכר בדיקת QA')}`,
+    { method: 'DELETE', headers: ownerHeaders }).catch(() => {});
+  if (foreignUserId && svcHeaders) {
+    await fetch(`${SUPA}/auth/v1/admin/users/${foreignUserId}`, { method: 'DELETE', headers: svcHeaders }).catch(() => {});
   }
   // Verify the system is exactly as we found it.
   const after = await rest('properties?select=id');

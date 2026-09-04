@@ -79,6 +79,20 @@ function ThemeToggle() {
 
   useEffect(() => {
     setDark(document.documentElement.classList.contains('dark'));
+
+    /* Follow the device while no explicit choice has been made — someone who
+       switches their phone to dark at sunset should see the app follow, and
+       someone who has pressed this button should not be overruled by it. */
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const follow = (e: MediaQueryListEvent | MediaQueryList) => {
+      let saved: string | null = null;
+      try { saved = localStorage.getItem('theme'); } catch { /* private mode */ }
+      if (saved === 'dark' || saved === 'light') return;
+      document.documentElement.classList.toggle('dark', e.matches);
+      setDark(e.matches);
+    };
+    media.addEventListener('change', follow);
+    return () => media.removeEventListener('change', follow);
   }, []);
 
   const toggle = () => {
