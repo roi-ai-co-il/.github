@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, Loader2, ArrowRight } from 'lucide-react';
+import { Building2, Loader2, ArrowRight, Wrench } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { isAllowedEmail } from '@/lib/auth-config';
+import { isAllowedEmail, isInMaintenance } from '@/lib/auth-config';
 
 /** Supabase is configured for a 6-digit code (`mailer_otp_length: 6`). */
 const CODE_LENGTH = 6;
@@ -17,7 +17,45 @@ const RESEND_SECONDS = 60;
  *  it — a check that flashes past reads as a glitch, not as an answer. */
 const VERIFIED_MS = 2300;
 
-type Step = 'email' | 'code' | 'verified';
+type Step = 'email' | 'code' | 'verified' | 'maintenance';
+
+/**
+ * Shown the moment an address on the maintenance list is entered — before any
+ * code is sent, because the mailer allows two an hour and a code that leads
+ * nowhere is a code wasted. The middleware says the same thing to a session
+ * that is already signed in.
+ */
+function UnderRenovation({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="text-center py-4" role="status" aria-live="polite">
+      <div className="w-[68px] h-[68px] rounded-[22px] bg-warning-tint text-warning flex items-center justify-center mx-auto">
+        <Wrench size={30} strokeWidth={2} />
+      </div>
+      <h1 className="mt-5 text-[24px] font-bold text-label tracking-tight leading-tight">
+        שי, אנחנו בשיפוצים
+      </h1>
+      <p className="mt-2.5 text-[15px] text-label-secondary leading-relaxed">
+        המערכת שלך בבנייה ממש עכשיו — מסדרים את הנכסים, החוזים והגבייה
+        כדי שהכול יחכה לך מוכן. נודיע לך ברגע שאפשר להיכנס.
+      </p>
+      <a
+        href="https://wa.me/972544994224"
+        target="_blank"
+        rel="noreferrer"
+        className="press touch-target inline-flex items-center justify-center w-full mt-6 py-3.5 rounded-2xl bg-accent text-white font-semibold text-[15px]"
+      >
+        שליחת הודעה לרועי
+      </a>
+      <button
+        type="button"
+        onClick={onBack}
+        className="press mt-3 text-[14px] text-label-tertiary underline underline-offset-2"
+      >
+        כתובת אחרת
+      </button>
+    </div>
+  );
+}
 
 /**
  * The moment the code is accepted. The ring draws itself, the tick follows it,
@@ -113,6 +151,12 @@ export default function LoginPage() {
       setError('הכתובת הזו אינה מורשית לכניסה למערכת');
       return;
     }
+    /* Answer here instead of sending a code nobody can use. The built-in mailer
+       allows two sends an hour, so a wasted one is not free. */
+    if (isInMaintenance(email)) {
+      setStep('maintenance');
+      return;
+    }
     setLoading(true);
     const supabase = createClient();
     // shouldCreateUser:false — this is a sign-in, never a sign-up. Without it a
@@ -170,7 +214,9 @@ export default function LoginPage() {
   return (
     <div className="min-h-[100dvh] bg-canvas flex flex-col items-center justify-center px-6 py-10">
       <div className="w-full max-w-[340px] animate-in">
-        {step === 'verified' ? (
+        {step === 'maintenance' ? (
+          <UnderRenovation onBack={() => { setStep('email'); setEmail(''); }} />
+        ) : step === 'verified' ? (
           <Verified />
         ) : (
           <>

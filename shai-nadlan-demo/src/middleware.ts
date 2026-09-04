@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { isAllowedEmail } from '@/lib/auth-config';
+import { isAllowedEmail, isInMaintenance } from '@/lib/auth-config';
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -32,6 +32,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isLogin = request.nextUrl.pathname.startsWith('/login');
+  const isMaintenance = request.nextUrl.pathname.startsWith('/maintenance');
 
   // A session for any other address is refused here, not only in the login form.
   // Every row is scoped `owner = auth.uid()` to ONE account, so another user
@@ -41,6 +42,22 @@ export async function middleware(request: NextRequest) {
     await supabase.auth.signOut();
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
+  /* An account that is on the maintenance list sees the notice and nothing
+     else. Checked here rather than in the layout so it covers every route at
+     once — including a session that signed in before the list existed. */
+  if (user && isInMaintenance(user.email) && !isMaintenance) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/maintenance';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+  // Nobody else has any use for the notice.
+  if (isMaintenance && (!user || !isInMaintenance(user.email))) {
+    const url = request.nextUrl.clone();
+    url.pathname = user ? '/' : '/login';
     return NextResponse.redirect(url);
   }
 
