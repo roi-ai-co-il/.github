@@ -3,12 +3,50 @@ import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import type { Database } from '@/lib/database.types';
 
 // Two sequential model calls can pass 10s; Vercel Hobby allows up to 60.
 export const maxDuration = 60;
 
 const CLAUDE_MODEL = 'claude-opus-5';
 const GEMINI_MODEL = 'gemini-2.5-flash';
+
+/* ── What the planner may touch ────────────────────────
+   RLS already scopes every row to the signed-in owner; the allowlist is
+   defense in depth so a crafted prompt cannot reach a column we never
+   meant the assistant to read. */
+/* The tables the assistant may read, checked against the real schema: a name
+   that is not a table fails to compile, and ALLOWED_COLUMNS below must carry
+   an entry for every one of them — a missing or extra key is a type error,
+   not something to notice later. */
+const ASSISTANT_TABLES = ['properties', 'tenants', 'leases', 'repairs', 'vendors'] as const satisfies readonly (keyof Database['public']['Tables'])[];
+type AssistantTable = (typeof ASSISTANT_TABLES)[number];
+
+const ALLOWED_COLUMNS: Record<AssistantTable, string[]> = {
+  properties: [
+    'id', 'name', 'address', 'city', 'property_type', 'rooms', 'area_sqm',
+    'floor_no', 'purchase_price', 'purchase_date', 'current_value', 'status',
+    'notes', 'created_at',
+  ],
+  tenants: ['id', 'full_name', 'phone', 'email', 'notes', 'created_at'],
+  leases: [
+    'id', 'property_id', 'tenant_id', 'start_date', 'end_date', 'monthly_rent',
+    'payment_day', 'deposit', 'linked_to_cpi', 'status', 'notes', 'created_at',
+  ],
+  repairs: [
+    'id', 'property_id', 'vendor_id', 'title', 'trade', 'reported_on', 'done_on',
+    'cost', 'charge_mode', 'tenant_share', 'tenant_charge', 'owner_cost',
+    'notes', 'created_at',
+  ],
+  vendors: ['id', 'name', 'trade', 'phone', 'email', 'notes', 'created_at'],
+};
+
+/* The one list of tables the assistant may read. Both plan schemas below
+   derive from it, so a table added to the allowlist is immediately askable —
+   `repairs` was added to the allowlist and to the prompt and remained
+   unreachable, because the enum in each schema still named three tables and
+   every repairs question came back "I did not understand". */
+const TABLES = ASSISTANT_TABLES as unknown as [AssistantTable, ...AssistantTable[]];
 
 /* ── Query-plan schema ─────────────────────────────────
    The model must answer inside this shape — a validated plan, never
@@ -21,7 +59,7 @@ const FilterSchema = z.object({
 });
 
 const QuerySchema = z.object({
-  table: z.enum(['properties', 'tenants', 'leases']),
+  table: z.enum(TABLES),
   select: z.array(z.string()),
   filters: z.array(FilterSchema),
   order: z.union([
@@ -50,7 +88,7 @@ const GEMINI_PLAN_SCHEMA = {
       items: {
         type: 'OBJECT',
         properties: {
-          table: { type: 'STRING', enum: ['properties', 'tenants', 'leases'] },
+          table: { type: 'STRING', enum: TABLES },
           select: { type: 'ARRAY', items: { type: 'STRING' } },
           filters: {
             type: 'ARRAY',
@@ -82,27 +120,10 @@ const GEMINI_PLAN_SCHEMA = {
   required: ['intent', 'queries'],
 } as const;
 
-/* ── What the planner may touch ────────────────────────
-   RLS already scopes every row to the signed-in owner; the allowlist is
-   defense in depth so a crafted prompt cannot reach a column we never
-   meant the assistant to read. */
-const ALLOWED_COLUMNS: Record<string, string[]> = {
-  properties: [
-    'id', 'name', 'address', 'city', 'property_type', 'rooms', 'area_sqm',
-    'floor_no', 'purchase_price', 'purchase_date', 'current_value', 'status',
-    'notes', 'created_at',
-  ],
-  tenants: ['id', 'full_name', 'phone', 'email', 'notes', 'created_at'],
-  leases: [
-    'id', 'property_id', 'tenant_id', 'start_date', 'end_date', 'monthly_rent',
-    'payment_day', 'deposit', 'linked_to_cpi', 'status', 'notes', 'created_at',
-  ],
-};
-
 /* Closed vocabularies. A filter carrying a value outside them (e.g. a
    Hebrew word instead of the stored enum) would return an empty set that
    reads as a confident "none" — treat it as could-not-read instead. */
-const ENUM_COLUMNS: Record<string, Record<string, string[]>> = {
+const ENUM_COLUMNS: Partial<Record<AssistantTable, Record<string, string[]>>> = {
   properties: {
     status: ['rented', 'vacant', 'renovation', 'for_sale'],
     property_type: ['apartment', 'penthouse', 'garden_apartment', 'house', 'commercial', 'office', 'storage', 'parking'],
@@ -110,9 +131,12 @@ const ENUM_COLUMNS: Record<string, Record<string, string[]>> = {
   leases: {
     status: ['active', 'ended'],
   },
+  repairs: {
+    charge_mode: ['owner', 'tenant', 'split'],
+  },
 };
 
-function validEnumFilters(table: string, filters: { column: string; op: string; value: unknown }[]): boolean {
+function validEnumFilters(table: AssistantTable, filters: { column: string; op: string; value: unknown }[]): boolean {
   const enums = ENUM_COLUMNS[table];
   if (!enums) return true;
   return filters.every((f) => {
@@ -154,16 +178,21 @@ function summarise(rows: unknown[]): string {
   return lines.join('\n');
 }
 
+/** The allowlist, looked up by a name that has not been proved to be a table. */
+const columnsOf = (name: string): string[] | undefined =>
+  (ALLOWED_COLUMNS as Record<string, string[] | undefined>)[name];
+
 function validColumns(table: string, columns: string[]): boolean {
-  const allowed = ALLOWED_COLUMNS[table];
+  const allowed = columnsOf(table);
   if (!allowed) return false;
   return columns.every((raw) => {
     const col = raw.trim();
     // Embedded relation, e.g. properties(name,city) inside a leases query.
     const rel = col.match(/^(\w+)\(([\w\s,]+)\)$/);
     if (rel) {
+      const relAllowed = columnsOf(rel[1]);
       const relCols = rel[2].split(',').map((c) => c.trim());
-      return rel[1] in ALLOWED_COLUMNS && relCols.every((c) => ALLOWED_COLUMNS[rel[1]].includes(c));
+      return !!relAllowed && relCols.every((c) => relAllowed.includes(c));
     }
     return allowed.includes(col);
   });
@@ -176,10 +205,13 @@ DATABASE (PostgREST-style, all rows belong to the signed-in owner):
 - properties: id, name, address, city, property_type (apartment/penthouse/garden_apartment/house/commercial/office/storage/parking), rooms, area_sqm, floor_no, purchase_price, purchase_date, current_value, status (rented/vacant/renovation/for_sale), notes, created_at
 - tenants: id, full_name, phone, email, notes, created_at
 - leases: id, property_id, tenant_id, start_date, end_date, monthly_rent, payment_day, deposit, linked_to_cpi, status (active/ended), notes, created_at
+- repairs: id, property_id, vendor_id, title, trade, reported_on, done_on (null = still open), cost (null = the invoice has not arrived yet), charge_mode (owner/tenant/split), tenant_share, tenant_charge, owner_cost, notes, created_at
+- vendors: id, name, trade, phone, email, notes, created_at
 
 RULES:
 - select is an array of column names. In a leases query you may embed the related rows as "properties(name,city)" and "tenants(full_name,phone)".
-- Filter values for status and property_type MUST be the exact English enum values listed above — never Hebrew words. Hebrew mapping: מושכר=rented, פנוי=vacant, בשיפוץ=renovation, למכירה=for_sale, פעיל=active, הסתיים=ended.
+- Filter values for status, property_type and charge_mode MUST be the exact English enum values listed above — never Hebrew words. Hebrew mapping: מושכר=rented, פנוי=vacant, בשיפוץ=renovation, למכירה=for_sale, פעיל=active, הסתיים=ended, על חשבוני=owner, על חשבון הדייר=tenant, חלוקה=split.
+- On repairs: owner_cost is what came off the owner's profit and tenant_charge is what was charged on to the tenant — both are computed by the database, so select them rather than working the split out from cost. An open repair has done_on = null; a repair whose invoice has not arrived has cost = null, which means "not known yet" and never ₪0. In a repairs query you may embed "properties(name,city)" and "vendors(name,trade)".
 - Dates are ISO YYYY-MM-DD strings. For "soon/הקרוב" questions filter end_date between today and the horizon the user implies (default 6 months).
 - Text matching (name, address, city, full_name) MUST use op "ilike" with the value wrapped in % on both sides, e.g. {"op":"ilike","value":"%רוטשילד%"} — never eq, and never a bare substring.
 - For sums/averages (portfolio value, total rent) select the numeric columns and enough context columns; the answer layer does the arithmetic.
@@ -204,16 +236,29 @@ type Turn = { role: 'user' | 'assistant'; content: string };
    Both return null for "could not produce a usable result" — that state
    is never silently converted into an empty plan or an invented answer. */
 
-async function claudePlan(client: Anthropic, turns: Turn[]): Promise<Plan | null> {
-  const resp = await client.messages.parse({
-    model: CLAUDE_MODEL,
-    max_tokens: 4096,
-    output_config: { effort: 'low', format: zodOutputFormat(PlanSchema) },
-    system: SCHEMA_PROMPT,
-    messages: turns,
-  });
-  if (resp.stop_reason === 'refusal') return null;
-  return resp.parsed_output ?? null;
+/* "The model could not map your question" and "the model never answered" are
+   different things, and only the first is the user's to act on. Folding an
+   unreachable service into "I did not understand the question" blames the
+   person for an outage and sends them rewording a question that was fine —
+   which is exactly what happened here with an expired API key. */
+const UNREACHABLE = Symbol('assistant-unreachable');
+type Planned = Plan | null | typeof UNREACHABLE;
+
+async function claudePlan(client: Anthropic, turns: Turn[]): Promise<Planned> {
+  try {
+    const resp = await client.messages.parse({
+      model: CLAUDE_MODEL,
+      max_tokens: 4096,
+      output_config: { effort: 'low', format: zodOutputFormat(PlanSchema) },
+      system: SCHEMA_PROMPT,
+      messages: turns,
+    });
+    if (resp.stop_reason === 'refusal') return null;
+    return resp.parsed_output ?? null;
+  } catch (e) {
+    console.error('claude plan call failed:', e instanceof Error ? e.message : e);
+    return UNREACHABLE;
+  }
 }
 
 async function claudeAnswer(client: Anthropic, content: string): Promise<string | null> {
@@ -238,7 +283,7 @@ async function geminiCall(
   system: string,
   turns: Turn[],
   jsonSchema?: unknown,
-): Promise<string | null> {
+): Promise<string | null | typeof UNREACHABLE> {
   const resp = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
     {
@@ -257,8 +302,11 @@ async function geminiCall(
     },
   );
   if (!resp.ok) {
-    console.error('gemini call failed:', resp.status);
-    return null;
+    /* The status alone sent an earlier debugging session looking in the wrong
+       place: a 400 here is almost always the request schema being rejected,
+       and the body says which field. Log it. */
+    console.error('gemini call failed:', resp.status, (await resp.text()).slice(0, 600));
+    return UNREACHABLE;
   }
   const json = await resp.json();
   const parts: { text?: string }[] = json?.candidates?.[0]?.content?.parts ?? [];
@@ -266,8 +314,9 @@ async function geminiCall(
   return text || null;
 }
 
-async function geminiPlan(apiKey: string, turns: Turn[]): Promise<Plan | null> {
+async function geminiPlan(apiKey: string, turns: Turn[]): Promise<Planned> {
   const text = await geminiCall(apiKey, SCHEMA_PROMPT, turns, GEMINI_PLAN_SCHEMA);
+  if (text === UNREACHABLE) return UNREACHABLE;
   if (!text) return null;
   try {
     const parsed = PlanSchema.safeParse(JSON.parse(text));
@@ -330,6 +379,11 @@ export async function POST(req: Request) {
       ? await claudePlan(anthropic, turns)
       : await geminiPlan(geminiKey!, turns);
 
+    if (plan === UNREACHABLE) {
+      return NextResponse.json({
+        answer: 'העוזר החכם לא זמין כרגע — זו תקלה אצלנו, לא בשאלה שלך. נסה שוב עוד רגע.',
+      });
+    }
     if (!plan) {
       return NextResponse.json({
         answer: 'לא הצלחתי להבין את השאלה. נסה למשל: "אילו חוזים מסתיימים בקרוב?" או "מה שווי התיק?"',
