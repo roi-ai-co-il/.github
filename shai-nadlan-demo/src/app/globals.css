@@ -177,6 +177,13 @@ body {
 .touch-target {
   min-height: 44px;
   min-width: 44px;
+}
+/* The centring is in :where() so it carries ZERO specificity. Written as a
+   plain class it sits after Tailwind's utilities in the sheet and quietly
+   beats them on display — `md:hidden touch-target` rendered a button that was
+   supposed to be phone-only on every screen, with nothing in the markup to
+   suggest why. */
+:where(.touch-target) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
