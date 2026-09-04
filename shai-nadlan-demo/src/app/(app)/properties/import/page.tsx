@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import ImportWizard, { type RecentBatch } from '@/components/ImportWizard';
+import ImportWizard, { type EntityOption, type RecentBatch } from '@/components/ImportWizard';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,8 +10,9 @@ export default async function ImportPage() {
 
   // Duplicate detection compares against what is already here, so the list is
   // fetched once on the server rather than per row from the browser.
-  const [{ data: properties }, { data: batches }] = await Promise.all([
+  const [{ data: properties }, { data: entities }, { data: batches }] = await Promise.all([
     supabase.from('properties').select('id, name, address, city'),
+    supabase.from('owner_entities').select('id, name').order('name'),
     supabase
       .from('import_batches')
       .select('id, created_at, filename, source, counts')
@@ -28,5 +29,11 @@ export default async function ImportPage() {
     counts: (b.counts ?? null) as Record<string, number> | null,
   }));
 
-  return <ImportWizard existing={properties ?? []} recent={recent} />;
+  return (
+    <ImportWizard
+      existing={properties ?? []}
+      entities={(entities ?? []) as EntityOption[]}
+      recent={recent}
+    />
+  );
 }

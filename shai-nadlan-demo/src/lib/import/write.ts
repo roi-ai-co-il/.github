@@ -35,6 +35,16 @@ export interface WriteOptions {
   source: 'file' | 'paste';
   filename: string | null;
   markPastPaid: boolean;
+  /** Create the buildings the addresses imply. On by default; a scattered
+   *  portfolio detects none, so the flag only matters when there is something
+   *  to group. */
+  groupBuildings: boolean;
+  /**
+   * Who holds these properties. Optional by design — the portfolio may be on
+   * one name, and then this is a field nobody should have to think about.
+   * A file that names an entity per row always overrules this.
+   */
+  entity: { id: string } | { newName: string } | null;
   onProgress?: (step: string) => void;
 }
 
@@ -67,24 +77,64 @@ export async function writeImport(
   rows: PlannedRow[],
   opts: WriteOptions,
 ): Promise<WriteResult> {
+  const batch = await openBatch(db, opts);
+  try {
+    return await runImport(db, rows, opts, batch);
+  } catch (err) {
+    /* Half a portfolio is worse than none: the user cannot tell which half
+       arrived. The batch id exists precisely so a failure can be unwound as one
+       act, so it is unwound here rather than left for them to find. */
+    try {
+      await undoImport(db, batch);
+      await db.from('import_batches').delete().eq('id', batch);
+    } catch {
+      throw new Error(
+        `${err instanceof Error ? err.message : 'הייבוא נכשל'} — וגם הניקוי נכשל. ` +
+        'הייבוא מופיע ברשימת הייבואים האחרונים ואפשר לבטל אותו משם.',
+      );
+    }
+    throw new Error(
+      `${err instanceof Error ? err.message : 'הייבוא נכשל'} — לא נשמר שום דבר, אפשר לתקן ולנסות שוב.`,
+    );
+  }
+}
+
+async function openBatch(db: DB, opts: WriteOptions): Promise<string> {
+  const { data, error } = await db
+    .from('import_batches')
+    .insert({ source: opts.source, filename: opts.filename, counts: {} })
+    .select('id')
+    .single();
+  if (error || !data) throw new Error(`פתיחת הייבוא נכשלה: ${error?.message ?? 'לא ידוע'}`);
+  return data.id;
+}
+
+async function runImport(
+  db: DB,
+  rows: PlannedRow[],
+  opts: WriteOptions,
+  batchId: string,
+): Promise<WriteResult> {
   const say = opts.onProgress ?? (() => {});
   const toCreate = rows.filter((r) => r.decision === 'create');
   const toMerge = rows.filter((r) => r.decision === 'merge' && r.duplicateOf);
   const skipped = rows.length - toCreate.length - toMerge.length;
 
-  say('פותח ייבוא…');
-  const { data: batch, error: batchErr } = await db
-    .from('import_batches')
-    .insert({ source: opts.source, filename: opts.filename, counts: {} })
-    .select('id')
-    .single();
-  if (batchErr || !batch) throw new Error(`פתיחת הייבוא נכשלה: ${batchErr?.message ?? 'לא ידוע'}`);
-  const batchId = batch.id;
-
   /* ---- entities and buildings the file refers to by name ---------------- */
   say('בודק ישויות ובניינים…');
-  const wantedEntities = [...new Set(toCreate.map((r) => r.property.entityName).filter(Boolean))] as string[];
-  const wantedBuildings = [...new Set(toCreate.map((r) => r.property.buildingName).filter(Boolean))] as string[];
+  /* One place decides which building and which entity a row belongs to, so the
+     review screen and the writer cannot disagree about it. */
+  const buildingOf = (r: PlannedRow): string | null =>
+    r.property.buildingName ?? (opts.groupBuildings ? r.autoBuilding : null);
+
+  const chosenNewEntity = opts.entity && 'newName' in opts.entity ? opts.entity.newName.trim() : '';
+  const chosenEntityId = opts.entity && 'id' in opts.entity ? opts.entity.id : null;
+
+  const wantedEntities = [...new Set([
+    ...toCreate.map((r) => r.property.entityName).filter(Boolean) as string[],
+    ...(chosenNewEntity ? [chosenNewEntity] : []),
+  ])];
+  const wantedBuildings = [...new Set(toCreate.map(buildingOf).filter(Boolean))] as string[];
 
   const entityId = new Map<string, string>();
   const buildingId = new Map<string, string>();
@@ -96,7 +146,12 @@ export async function writeImport(
     for (const e of data ?? []) entityId.set(e.name.trim(), e.id);
     const missing = wantedEntities.filter((n) => !entityId.has(n.trim()));
     if (missing.length) {
-      const rowsToAdd = missing.map((name) => ({ id: newId(), name, entity_type: 'individual' }));
+      // entity_type is deliberately NOT set: the column defaults to 'יחיד' and
+      // its CHECK constraint accepts only Hebrew values. Naming it here once
+      // shipped 'individual', which the database rejected and which took the
+      // whole import down — a value the column can supply itself is a value
+      // that can never drift away from the constraint.
+      const rowsToAdd = missing.map((name) => ({ id: newId(), name }));
       await inChunks(rowsToAdd, (b) => db.from('owner_entities').insert(b), 'ישויות');
       for (const r of rowsToAdd) entityId.set(r.name.trim(), r.id);
       newEntities = rowsToAdd.length;
@@ -109,13 +164,15 @@ export async function writeImport(
     const missing = wantedBuildings.filter((n) => !buildingId.has(n.trim()));
     if (missing.length) {
       const rowsToAdd = missing.map((name) => {
-        const source = toCreate.find((r) => r.property.buildingName === name);
+        const source = toCreate.find((r) => buildingOf(r) === name);
         return {
           id: newId(),
           name,
           city: source?.property.city ?? null,
           address: source?.property.address ?? null,
-          entity_id: source?.property.entityName ? entityId.get(source.property.entityName.trim()) ?? null : null,
+          entity_id: source?.property.entityName
+            ? entityId.get(source.property.entityName.trim()) ?? null
+            : chosenNewEntity ? entityId.get(chosenNewEntity) ?? null : chosenEntityId,
         };
       });
       await inChunks(rowsToAdd, (b) => db.from('buildings').insert(b), 'בניינים');
@@ -184,8 +241,15 @@ export async function writeImport(
       insurance_expires_on: p.insurance_expires_on,
       insurer: p.insurer,
       notes: p.notes,
-      entity_id: p.entityName ? entityId.get(p.entityName.trim()) ?? null : null,
-      building_id: p.buildingName ? buildingId.get(p.buildingName.trim()) ?? null : null,
+      // A per-row entity from the file wins; otherwise the one chosen for the
+      // whole import; otherwise none, which is a perfectly good answer.
+      entity_id: p.entityName
+        ? entityId.get(p.entityName.trim()) ?? null
+        : chosenNewEntity ? entityId.get(chosenNewEntity) ?? null : chosenEntityId,
+      building_id: (() => {
+        const b = buildingOf(r);
+        return b ? buildingId.get(b.trim()) ?? null : null;
+      })(),
       import_batch_id: batchId,
     };
   });

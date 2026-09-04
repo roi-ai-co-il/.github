@@ -2,11 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import {
-  AlertTriangle, ChevronDown, ChevronRight, CircleAlert, Copy, Info, Sparkles, UserRound,
+  AlertTriangle, Building2, ChevronDown, ChevronRight, CircleAlert, Copy, Info,
+  Landmark, Sparkles, UserRound,
 } from 'lucide-react';
 import { ILS, heDate } from '@/lib/format';
 import { PROPERTY_STATUS, PROPERTY_TYPES } from '@/lib/domain';
-import type { PlannedRow, RowDecision } from '@/lib/import/plan';
+import type { DetectedBuilding, PlannedRow, RowDecision } from '@/lib/import/plan';
+import type { EntityOption } from '@/components/ImportWizard';
 
 const inputCls =
   'w-full bg-surface-sunken rounded-xl px-3 py-2.5 text-[15px] text-label placeholder:text-label-tertiary outline-none focus:ring-2 focus:ring-accent/30';
@@ -23,17 +25,27 @@ type Filter = 'all' | 'attention' | 'create' | 'skip';
  * problem rather than a quiet zero.
  */
 export default function ImportReview({
-  rows, onChange, markPastPaid, onMarkPastPaid, onBack, onSave,
+  rows, onChange, markPastPaid, onMarkPastPaid,
+  buildings, groupBuildings, onGroupBuildings,
+  entities, entityChoice, onEntityChoice,
+  onBack, onSave,
 }: {
   rows: PlannedRow[];
   onChange: (rows: PlannedRow[]) => void;
   markPastPaid: boolean;
   onMarkPastPaid: (v: boolean) => void;
+  buildings: DetectedBuilding[];
+  groupBuildings: boolean;
+  onGroupBuildings: (v: boolean) => void;
+  entities: EntityOption[];
+  entityChoice: string;
+  onEntityChoice: (v: string) => void;
   onBack: () => void;
   onSave: () => void;
 }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [open, setOpen] = useState<number | null>(null);
+  const [newEntity, setNewEntity] = useState('');
 
   const counts = useMemo(() => ({
     create: rows.filter((r) => r.decision === 'create').length,
@@ -155,6 +167,74 @@ export default function ImportReview({
         </label>
       )}
 
+      {buildings.length > 0 && (
+        <section className="bg-surface rounded-2xl border border-separator overflow-hidden">
+          <label className="flex items-start gap-3 p-4 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={groupBuildings}
+              onChange={(e) => onGroupBuildings(e.target.checked)}
+              className="mt-0.5 w-5 h-5 accent-[var(--accent,#0a84ff)]"
+            />
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-[15px] font-medium text-label">
+                <Building2 size={15} className="text-accent shrink-0" />
+                {buildings.length === 1
+                  ? 'זיהינו בניין אחד עם כמה דירות'
+                  : `זיהינו ${buildings.length} בניינים עם כמה דירות`}
+              </span>
+              <span className="block text-[13px] text-label-tertiary mt-0.5">
+                הכתובות אומרות קומה ומספר דירה, אז הדירות האלה יקובצו תחת הבניין
+                שלהן במסך „אתרים”. כל דירה נשארת נכס נפרד.
+              </span>
+            </span>
+          </label>
+          {groupBuildings && (
+            <div className="border-t border-separator divide-y divide-separator">
+              {buildings.map((b) => (
+                <div key={b.name} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <span className="text-[14px] text-label truncate" dir="auto">{b.name}</span>
+                  <span className="text-[13px] text-label-tertiary shrink-0">
+                    {b.rows.length} דירות
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      <section className="bg-surface rounded-2xl border border-separator p-4">
+        <span className="flex items-center gap-1.5 text-[15px] font-medium text-label">
+          <Landmark size={15} className="text-accent shrink-0" />
+          על שם מי רשומים הנכסים האלה
+        </span>
+        <p className="text-[13px] text-label-tertiary mt-0.5 mb-2.5">
+          לא חובה. אם הכל על שם אחד אפשר להשאיר „לא לשייך” — ואם יש כמה ישויות,
+          בחירה כאן תחסוך שיוך ידני לכל נכס. שורה שהקובץ כבר ציין לה ישות תשמור על שלה.
+        </p>
+        <select
+          aria-label="ישות מחזיקה לכל הנכסים בייבוא"
+          value={entityChoice.startsWith('new:') ? '' : entityChoice}
+          onChange={(e) => { onEntityChoice(e.target.value); setNewEntity(''); }}
+          disabled={newEntity.trim().length > 0}
+          className="w-full bg-surface-sunken rounded-xl px-3 py-2.5 text-[15px] text-label outline-none focus:ring-2 focus:ring-accent/30"
+        >
+          <option value="">לא לשייך</option>
+          {entities.map((en) => <option key={en.id} value={en.id}>{en.name}</option>)}
+        </select>
+        <input
+          className="w-full bg-surface-sunken rounded-xl px-3 py-2.5 text-[15px] text-label placeholder:text-label-tertiary outline-none focus:ring-2 focus:ring-accent/30 mt-2"
+          value={newEntity}
+          onChange={(e) => {
+            setNewEntity(e.target.value);
+            onEntityChoice(e.target.value.trim() ? `new:${e.target.value.trim()}` : '');
+          }}
+          placeholder="או הקלד שם של ישות חדשה — היא תיווצר בייבוא"
+          aria-label="ישות חדשה"
+        />
+      </section>
+
       <div className="space-y-2">
         {visible.map((r) => (
           <RowCard
@@ -237,6 +317,13 @@ function RowCard({
               <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-fill text-label-secondary">ידולג</span>
             )}
           </span>
+
+          {(p.buildingName || row.autoBuilding) && (
+            <span className="flex items-center gap-1 text-[12px] text-accent mt-0.5">
+              <Building2 size={11} className="shrink-0" />
+              {p.buildingName ?? row.autoBuilding}
+            </span>
+          )}
 
           <span className="block text-[13px] text-label-secondary truncate mt-0.5" dir="auto">
             {[p.address, p.city].filter(Boolean).join(', ') || 'אין כתובת'}
@@ -343,6 +430,7 @@ const DERIVED_LABEL: Record<string, string> = {
   status: 'הסטטוס',
   property_type: 'סוג הנכס',
   lease_end: 'תאריך סיום החוזה',
+  floor_no: 'הקומה (מתוך הכתובת)',
   payment_day: 'יום התשלום',
   asking_rent: 'שכר הדירה המבוקש',
 };

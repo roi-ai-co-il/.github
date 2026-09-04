@@ -13,12 +13,14 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { readFile, readPaste, ImportReadError, type Source } from '@/lib/import/read-source';
 import { buildGrid, type Grid } from '@/lib/import/grid';
 import { autoMap, setMapping, type ColumnMapping } from '@/lib/import/match';
-import { buildPlan, type ExistingProperty, type PlannedRow } from '@/lib/import/plan';
+import { buildPlan, type DetectedBuilding, type ExistingProperty, type PlannedRow } from '@/lib/import/plan';
 import { undoImport, writeImport, type WriteResult } from '@/lib/import/write';
 import ImportMapping from '@/components/ImportMapping';
 import ImportReview from '@/components/ImportReview';
 
 type Step = 'source' | 'sheet' | 'map' | 'review' | 'saving' | 'done';
+
+export interface EntityOption { id: string; name: string }
 
 export interface RecentBatch {
   id: string;
@@ -37,9 +39,11 @@ export interface RecentBatch {
  */
 export default function ImportWizard({
   existing,
+  entities,
   recent,
 }: {
   existing: ExistingProperty[];
+  entities: EntityOption[];
   recent: RecentBatch[];
 }) {
   const router = useRouter();
@@ -53,6 +57,10 @@ export default function ImportWizard({
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [rows, setRows] = useState<PlannedRow[]>([]);
   const [markPastPaid, setMarkPastPaid] = useState(true);
+  const [buildings, setBuildings] = useState<DetectedBuilding[]>([]);
+  const [groupBuildings, setGroupBuildings] = useState(true);
+  /* '' = do not assign, an id = an existing entity, 'new:NAME' = create it. */
+  const [entityChoice, setEntityChoice] = useState('');
   const [progress, setProgress] = useState('');
   const [result, setResult] = useState<WriteResult | null>(null);
   const [undoing, setUndoing] = useState<string | null>(null);
@@ -116,6 +124,7 @@ export default function ImportWizard({
       existing,
     });
     setRows(plan.rows);
+    setBuildings(plan.detectedBuildings);
     setStep('review');
   }, [grid, mappings, existing]);
 
@@ -129,6 +138,10 @@ export default function ImportWizard({
         source: source?.kind ?? 'file',
         filename: source?.filename ?? null,
         markPastPaid,
+        groupBuildings,
+        entity: entityChoice.startsWith('new:')
+          ? { newName: entityChoice.slice(4) }
+          : entityChoice ? { id: entityChoice } : null,
         onProgress: setProgress,
       });
       setResult(res);
@@ -138,7 +151,7 @@ export default function ImportWizard({
       setError(e instanceof Error ? e.message : 'הייבוא נכשל.');
       setStep('review');
     }
-  }, [rows, source, markPastPaid, router]);
+  }, [rows, source, markPastPaid, groupBuildings, entityChoice, router]);
 
   const doUndo = useCallback(async (batchId: string) => {
     try {
@@ -209,6 +222,12 @@ export default function ImportWizard({
           onChange={setRows}
           markPastPaid={markPastPaid}
           onMarkPastPaid={setMarkPastPaid}
+          buildings={buildings}
+          groupBuildings={groupBuildings}
+          onGroupBuildings={setGroupBuildings}
+          entities={entities}
+          entityChoice={entityChoice}
+          onEntityChoice={setEntityChoice}
           onBack={() => setStep('map')}
           onSave={save}
         />

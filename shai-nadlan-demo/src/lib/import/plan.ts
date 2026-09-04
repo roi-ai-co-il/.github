@@ -10,6 +10,7 @@ import {
   bool, date as parseDate, detectDateOrder, int, money, num, phone as parsePhone,
   text as parseText, vocab, clean, type DateOrder, type Parsed,
 } from './coerce';
+import { buildingKey, buildingNameFor, parseAddress } from './address';
 import { FIELD_BY_KEY, STATUS_WORDS, TYPE_WORDS } from './fields';
 import type { ColumnMapping } from './match';
 
@@ -75,6 +76,17 @@ export interface PlannedRow {
   duplicateOf: { id: string; name: string } | null;
   /** Set when an EARLIER row in the same file has the same address. */
   duplicateOfRow: number | null;
+  /** When several rows share one street address, the building we would create
+   *  for them. Null for a property that stands alone. */
+  autoBuilding: string | null;
+}
+
+/** A building the file implies rather than names: several units at one street
+ *  address. Shai's addresses look like "רוטשילד 12 קומה 1 דירה 2", so this is
+ *  the normal case for him, not an edge case. */
+export interface DetectedBuilding {
+  name: string;
+  rows: number[];
 }
 
 export interface ExistingProperty { id: string; name: string; address: string; city: string }
@@ -170,6 +182,8 @@ export interface Plan {
   rows: PlannedRow[];
   /** Which way round each date column was read, and whether that was proven. */
   dateOrder: { order: DateOrder; evidence: 'proven' | 'assumed' };
+  /** Buildings the addresses imply. Empty for a scattered portfolio. */
+  detectedBuildings: DetectedBuilding[];
 }
 
 export function buildPlan(input: BuildPlanInput): Plan {
@@ -214,6 +228,10 @@ export function buildPlan(input: BuildPlanInput): Plan {
       }
     }
 
+    /* The unit is usually written inside the address. Reading it costs nothing
+       and fills in a floor the file never had a column for. */
+    const parsedAddr = parseAddress(address);
+
     let name = r.get('name');
     if (!name) {
       // A property must be called something. The address is the honest choice —
@@ -251,6 +269,13 @@ export function buildPlan(input: BuildPlanInput): Plan {
       buildingName: take(parseText(r.get('building')), 'building', issues),
       entityName: take(parseText(r.get('entity')), 'entity', issues),
     };
+
+    // A floor written inside the address is used only when no column gave one,
+    // so an explicit column always wins over our reading of the text.
+    if (property.floor_no == null && parsedAddr.floor != null) {
+      property.floor_no = parsedAddr.floor;
+      derived.push('floor_no');
+    }
 
     /* ---- tenant ------------------------------------------------------- */
     const tenantName = r.get('tenant_name');
@@ -358,10 +383,49 @@ export function buildPlan(input: BuildPlanInput): Plan {
       decision: hasError || already || earlier != null ? 'skip' : 'create',
       duplicateOf: already ? { id: already.id, name: already.name } : null,
       duplicateOfRow: earlier ?? null,
+      autoBuilding: null,
     });
   });
 
-  return { rows, dateOrder };
+  /* ---- buildings the addresses imply ---------------------------------- */
+  // Grouped on the address WITHOUT its unit, which is a different key from the
+  // one duplicate detection uses on purpose: two flats in one building are two
+  // properties AND one building, and both facts have to survive.
+  const byBuilding = new Map<string, { name: string; rows: number[] }>();
+  for (const row of rows) {
+    const { address: a, city: c } = row.property;
+    if (!a || !c || row.decision === 'skip') continue;
+    // Only an address that actually names a unit implies a building; two
+    // unrelated properties that merely share a street would be a false group.
+    if (!parseAddress(a).hasUnit) continue;
+    const key = buildingKey(a, c);
+    const g = byBuilding.get(key) ?? { name: buildingNameFor(a, c), rows: [] };
+    g.rows.push(row.index);
+    byBuilding.set(key, g);
+  }
+
+  const detectedBuildings: DetectedBuilding[] = [];
+  for (const g of byBuilding.values()) {
+    if (g.rows.length < 2) continue;   // one flat is not a building
+
+    const members = g.rows
+      .map((i) => rows.find((r) => r.index === i))
+      .filter((r): r is PlannedRow => !!r);
+
+    /* If ANY flat in the group was given a building name by a column, that name
+       is the building's name for all of them. Deriving a second name from the
+       address for the flats the column left blank would split one physical
+       building into two — which is exactly what it did before this. */
+    const named = members.find((r) => r.property.buildingName)?.property.buildingName;
+    const name = named ?? g.name;
+
+    detectedBuildings.push({ name, rows: g.rows });
+    for (const row of members) {
+      if (!row.property.buildingName) row.autoBuilding = name;
+    }
+  }
+
+  return { rows, dateOrder, detectedBuildings };
 }
 
 /**

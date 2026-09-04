@@ -103,6 +103,37 @@ const CONTROLS = [
     expect: 'keeps its first row as data',
   },
   {
+    name: 'one physical building split in two by a derived second name',
+    file: 'import/plan.ts',
+    from: `    const named = members.find((r) => r.property.buildingName)?.property.buildingName;
+    const name = named ?? g.name;`,
+    to: `    const name = g.name;`,
+    expect: 'one name for one building',
+  },
+  {
+    name: 'a single flat at an address forming a "building" of one',
+    file: 'import/plan.ts',
+    from: `    if (g.rows.length < 2) continue;   // one flat is not a building`,
+    to: `    if (g.rows.length < 1) continue;`,
+    expect: 'NOT turned into a building of one',
+  },
+  {
+    name: 'the address floor overwriting a floor the file actually gave',
+    file: 'import/plan.ts',
+    from: `    if (property.floor_no == null && parsedAddr.floor != null) {`,
+    to: `    if (parsedAddr.floor != null) {`,
+    expect: 'beats a floor read out of the address',
+  },
+  {
+    name: 'grouping on the FULL address, so no building is ever detected',
+    file: 'import/address.ts',
+    from: `  const { base } = parseAddress(address);
+  const strip = (v: string) =>`,
+    to: `  const base = address;
+  const strip = (v: string) =>`,
+    expect: 'become a building AND stay separate',
+  },
+  {
     name: 'a missing lease end silently invented without a flag',
     file: 'import/plan.ts',
     from: `      if (endAssumed) derived.push('lease_end');`,

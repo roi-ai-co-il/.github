@@ -54,6 +54,7 @@ const xlsx = load('xlsx.js');
 const grid = load('grid.js');
 const match = load('match.js');
 const plan = load('plan.js');
+const address = load('address.js');
 const fields = load('fields.js');
 
 /* ------------------------------------------------------------- test runner */
@@ -414,6 +415,43 @@ t('setMapping: choosing a field another column holds MOVES it', () => {
   eq(mappings[1].fieldKey, null, 'the previous holder was released: ');
 });
 
+/* ================================================================ address */
+
+t('address: the floor and the flat are read out of the way Shai writes them', () => {
+  const cases = [
+    ['רוטשילד 12 קומה 1 דירה 2', 'רוטשילד 12', 1, '2'],
+    ['רוטשילד 12, קומה 4, דירה 7', 'רוטשילד 12', 4, '7'],
+    ["רוטשילד 12 ק' 4 ד' 7", 'רוטשילד 12', 4, '7'],
+    ['ביאליק 3 דירה 12', 'ביאליק 3', null, '12'],
+    ['הרצל 45 קומת קרקע', 'הרצל 45', 0, null],
+    ['ויצמן 8 קומה מרתף', 'ויצמן 8', -1, null],
+    ['רוטשילד 12/7', 'רוטשילד 12', null, '7'],
+  ];
+  for (const [input, base, floor, apt] of cases) {
+    const p = address.parseAddress(input);
+    eq([p.base, p.floor, p.apartment], [base, floor, apt], `${input}: `);
+  }
+});
+
+t('address: a plain street address keeps every word and claims no unit', () => {
+  const p = address.parseAddress('הרצל 45');
+  eq([p.base, p.floor, p.apartment, p.hasUnit], ['הרצל 45', null, null, false]);
+});
+
+t('address: the house number is never mistaken for a flat number', () => {
+  const p = address.parseAddress('רוטשילד 12');
+  eq(p.apartment, null);
+  eq(p.base, 'רוטשילד 12');
+});
+
+t('address: two flats in one building share a key, two streets do not', () => {
+  const a = address.buildingKey('רוטשילד 12 קומה 1 דירה 2', 'תל אביב');
+  const b = address.buildingKey("רח' רוטשילד 12, קומה 4 דירה 7", 'תל אביב');
+  const c = address.buildingKey('ביאליק 3 דירה 2', 'תל אביב');
+  eq(a, b, 'same building: ');
+  if (a === c) throw new Error('two different streets were grouped together');
+});
+
 /* =================================================================== plan */
 
 function planFrom(rows, existing = [], options) {
@@ -508,6 +546,59 @@ t('plan: a property already in the system is detected and defaults to skipped', 
   eq(p.rows[0].decision, 'skip');
   eq(p.rows[1].duplicateOf, null);
   eq(p.rows[1].decision, 'create');
+});
+
+t('plan: several flats at one address become a building AND stay separate', () => {
+  const p = planFrom([
+    ['כתובת', 'עיר'],
+    ['רוטשילד 12 קומה 1 דירה 2', 'תל אביב'],
+    ['רוטשילד 12 קומה 4 דירה 7', 'תל אביב'],
+    ['הרצל 45', 'חיפה'],
+  ]);
+  eq(p.detectedBuildings.length, 1);
+  eq(p.detectedBuildings[0].rows, [0, 1]);
+  eq(p.rows[0].autoBuilding, p.rows[1].autoBuilding, 'both flats point at one building: ');
+  eq(p.rows[2].autoBuilding, null, 'a lone property is not a building: ');
+  eq(p.rows[0].decision, 'create');
+  eq(p.rows[1].decision, 'create', 'they are still two properties: ');
+  eq(p.rows[0].property.floor_no, 1, 'the floor came out of the address: ');
+  eq(p.rows[1].property.floor_no, 4);
+});
+
+t('plan: one name for one building, even when the column filled only some rows', () => {
+  // The file names the building on two of the three flats. Deriving a second
+  // name from the address for the third would put one building in the system
+  // twice, which is worse than not grouping at all.
+  const p = planFrom([
+    ['כתובת', 'עיר', 'בניין'],
+    ['רוטשילד 12 קומה 1 דירה 4', 'תל אביב', 'בית רוטשילד'],
+    ['רוטשילד 12 קומה 4 דירה 7', 'תל אביב', 'בית רוטשילד'],
+    ['רוטשילד 12 קומה 2 דירה 5', 'תל אביב', ''],
+  ]);
+  eq(p.detectedBuildings.length, 1);
+  eq(p.detectedBuildings[0].name, 'בית רוטשילד');
+  eq(p.rows[2].autoBuilding, 'בית רוטשילד', 'the unnamed flat joins the named building: ');
+  eq(p.rows[0].autoBuilding, null, 'a row the column already named needs no auto name: ');
+});
+
+t('plan: one flat at an address is NOT turned into a building of one', () => {
+  const p = planFrom([
+    ['כתובת', 'עיר'],
+    ['רוטשילד 12 דירה 2', 'תל אביב'],
+    ['ביאליק 3 דירה 5', 'רמת גן'],
+  ]);
+  eq(p.detectedBuildings.length, 0);
+  eq(p.rows[0].autoBuilding, null);
+});
+
+t('plan: a floor COLUMN beats a floor read out of the address', () => {
+  const p = planFrom([
+    ['כתובת', 'עיר', 'קומה'],
+    ['רוטשילד 12 קומה 1 דירה 2', 'תל אביב', '9'],
+    ['רוטשילד 12 קומה 4 דירה 7', 'תל אביב', '11'],
+  ]);
+  eq(p.rows[0].property.floor_no, 9);
+  if (p.rows[0].derived.includes('floor_no')) throw new Error('a column value was reported as derived');
 });
 
 t('plan: two units in ONE building are two properties, not a duplicate', () => {
