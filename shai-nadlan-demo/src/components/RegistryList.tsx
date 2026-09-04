@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, Plus, Trash2, type LucideIcon } from 'lucide-react';
+import { Building, Loader2, Plus, Trash2, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { ILS } from '@/lib/format';
 import { Group, Rows, EmptyState } from '@/components/ui';
@@ -24,18 +24,25 @@ export interface RegistryRow {
  *
  *  Deleting never takes properties with it: both foreign keys are
  *  ON DELETE SET NULL, so a property simply stops being grouped. */
+/* The icon is chosen HERE, not passed in. A lucide icon is a function, and a
+   Server Component may not hand a function to a Client Component — doing so
+   threw "Functions cannot be passed directly to Client Components" and took
+   both /אתרים and /ישויות down with a 500 the moment either had a row to show.
+   Keeping the choice inside the client component makes that impossible. */
+const ICON = { buildings: Building, owner_entities: Users } as const;
+
 export default function RegistryList({
-  title, hint, table, icon: Icon, rows: initial, placeholder, subPlaceholder, subLabel,
+  title, hint, table, rows: initial, placeholder, subPlaceholder, subLabel,
 }: {
   title: string;
   hint: string;
   table: 'owner_entities' | 'buildings';
-  icon: LucideIcon;
   rows: RegistryRow[];
   placeholder: string;
   subPlaceholder: string;
   subLabel: string;
 }) {
+  const Icon = ICON[table];
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createClient();

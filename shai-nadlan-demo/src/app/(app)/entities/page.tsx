@@ -1,4 +1,3 @@
-import { Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import RegistryList, { type RegistryRow } from '@/components/RegistryList';
 
@@ -28,7 +27,6 @@ export default async function EntitiesPage() {
       title="ישויות"
       hint="מי מחזיק במה — אדם או חברה שעל שמם רשומים הנכסים"
       table="owner_entities"
-      icon={Users}
       rows={rows}
       placeholder="שם הישות"
       subPlaceholder="יחיד / חברה"

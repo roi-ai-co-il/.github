@@ -1,4 +1,3 @@
-import { Building } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import RegistryList, { type RegistryRow } from '@/components/RegistryList';
 
@@ -26,7 +25,6 @@ export default async function BuildingsPage() {
       title="אתרים"
       hint="בניין או מתחם שמכיל כמה נכסים. אם הנכסים שלך מפוזרים — אפשר לדלג על זה"
       table="buildings"
-      icon={Building}
       rows={rows}
       placeholder="שם האתר"
       subPlaceholder="עיר"
