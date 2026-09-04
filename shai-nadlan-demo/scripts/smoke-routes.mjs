@@ -18,38 +18,53 @@
 
 import { chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { loadSession, sessionCookie, projectEnv } from './qa-session.mjs';
 
 const BASE = process.env.BASE ?? 'http://localhost:3100';
-const PROJECT_REF = 'thmkokzalrgwzhdbiabi';
 
-const ROUTES = [
+const STATIC_ROUTES = [
   '/', '/calendar', '/tasks', '/entities', '/buildings', '/properties',
   '/tenants', '/collection', '/leases', '/vendors', '/documents', '/settings',
   '/properties/new', '/properties/import',
 ];
+
+/**
+ * The screens that only exist for a specific row — a property, its edit form,
+ * its lease form, a receipt. They are the ones most likely to break on real
+ * data and the ones a fixed list of paths cannot reach, so the ids are looked
+ * up at run time. A run against an empty system simply skips them and says so.
+ */
+async function parameterisedRoutes(headers) {
+  const local = readFileSync(new URL('../.env.local', import.meta.url), 'utf8');
+  const pick = (k) => local.match(new RegExp(`^${k}="?(.*?)"?$`, 'm'))?.[1];
+  const api = pick('NEXT_PUBLIC_SUPABASE_URL');
+  const get = async (q) => {
+    const r = await fetch(`${api}/rest/v1/${q}`, { headers });
+    return r.ok ? r.json() : [];
+  };
+  const [prop] = await get('properties?select=id&limit=1');
+  const [payment] = await get('lease_payments?select=id&paid=eq.true&limit=1');
+  const routes = [];
+  if (prop) routes.push(`/properties/${prop.id}`, `/properties/${prop.id}/edit`, `/properties/${prop.id}/lease`);
+  if (payment) routes.push(`/receipt/${payment.id}`);
+  return routes;
+}
 
 /* React shouts about these in dev and they are not what this gate is for. */
 const IGNORE = [/Download the React DevTools/i, /Fast Refresh/i];
 
 const envFile = process.argv[2];
 if (!envFile) throw new Error('usage: smoke-routes.mjs <session.env>');
-const env = readFileSync(envFile, 'utf8');
-const access_token = env.match(/SUPABASE_ACCESS_TOKEN='(.*)'/)?.[1];
-const refresh_token = env.match(/SUPABASE_REFRESH_TOKEN='(.*)'/)?.[1];
-if (!access_token) throw new Error('the session file has no SUPABASE_ACCESS_TOKEN');
+const session = await loadSession(envFile);
+const access_token = session.access_token;
 
-const cookie = 'base64-' + Buffer.from(JSON.stringify({
-  access_token, refresh_token, token_type: 'bearer',
-  expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600,
-})).toString('base64url');
+const extra = await parameterisedRoutes({ apikey: projectEnv().key, Authorization: `Bearer ${access_token}` });
+const ROUTES = [...STATIC_ROUTES, ...extra];
+if (!extra.length) console.log('(no rows yet — the per-row screens were skipped)');
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'he-IL' });
-await ctx.addCookies([{
-  name: `sb-${PROJECT_REF}-auth-token`, value: cookie,
-  domain: new URL(BASE).hostname, path: '/', sameSite: 'Lax',
-  expires: Math.floor(Date.now() / 1000) + 86400,
-}]);
+await ctx.addCookies([sessionCookie(session, BASE)]);
 
 const failures = [];
 let passed = 0;
