@@ -314,3 +314,22 @@ input[type=number] { -moz-appearance: textfield; }
 @media (prefers-reduced-motion: reduce) {
   .sheet-panel, .sheet-scrim { animation-duration: 0.01ms; }
 }
+
+/* ── Printing an אסמכתה ───────────────────────────────────
+   Only the document prints. Hiding by visibility rather than display keeps
+   the receipt's own layout intact — display:none on an ancestor would take
+   the receipt with it. */
+@media print {
+  body * { visibility: hidden; }
+  #receipt-print, #receipt-print * { visibility: visible; }
+  #receipt-print {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    color: #000;
+  }
+  @page { size: A4; margin: 14mm; }
+}

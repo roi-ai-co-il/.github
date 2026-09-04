@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Building2, Search, BedDouble, Ruler, Plus, X, LayoutGrid, Rows3 } from 'lucide-react';
-import { ILS } from '@/lib/format';
+import { Building2, Search, BedDouble, Ruler, Plus, X, LayoutGrid, Rows3, Pencil } from 'lucide-react';
+import { ILS, waLink } from '@/lib/format';
 import { PROPERTY_TYPES } from '@/lib/domain';
 import { StatusBadge, EmptyState } from '@/components/ui';
-import ContactButtons from '@/components/ContactButtons';
+import ContactButtons, { WhatsAppIcon } from '@/components/ContactButtons';
 
 type PropertyRow = {
   id: string;
@@ -193,6 +193,7 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
                         <th className="text-start font-medium px-3 py-2.5 tabular-nums">שכר דירה</th>
                         <th className="text-start font-medium px-3 py-2.5 tabular-nums">מחיר למ״ר</th>
                         <th className="text-start font-medium px-4 py-2.5 tabular-nums">שווי</th>
+                        <th className="text-end font-medium px-4 py-2.5"><span className="sr-only">פעולות</span></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -221,6 +222,33 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
                             </td>
                             <td className="px-4 py-3 tabular-nums whitespace-nowrap">
                               {p.current_value != null ? ILS(p.current_value) : '—'}
+                            </td>
+                            {/* Always visible rather than revealed on hover: a
+                                hover-only control is invisible on a touch
+                                screen, and this table scrolls on one. */}
+                            <td className="px-4 py-3">
+                              <span className="flex items-center justify-end gap-1.5">
+                                {lease?.tenant?.phone && (
+                                  <a
+                                    href={waLink(lease.tenant.phone)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title={`וואטסאפ ל${lease.tenant.full_name}`}
+                                    aria-label={`וואטסאפ ל${lease.tenant.full_name}`}
+                                    className="press w-8 h-8 rounded-full bg-[#25D366] text-white flex items-center justify-center shrink-0"
+                                  >
+                                    <WhatsAppIcon size={15} />
+                                  </a>
+                                )}
+                                <Link
+                                  href={`/properties/${p.id}/edit`}
+                                  title={`עריכת ${p.name}`}
+                                  aria-label={`עריכת ${p.name}`}
+                                  className="press w-8 h-8 rounded-full bg-fill text-label-secondary hover:text-accent flex items-center justify-center shrink-0"
+                                >
+                                  <Pencil size={14} strokeWidth={2.2} />
+                                </Link>
+                              </span>
                             </td>
                           </tr>
                         );

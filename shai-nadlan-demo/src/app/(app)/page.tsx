@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { ILS, heDateLong, heDate, daysUntil, waLink, heDays } from '@/lib/format';
 import { leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
 import { StatCard, Group, Rows, EmptyState } from '@/components/ui';
+import IncomeChart, { type MonthPoint } from '@/components/IncomeChart';
 import { OccupancyBar } from '@/components/OccupancyBar';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,17 @@ export default async function DashboardPage() {
     timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(now);
 
-  const [{ data: properties }, { data: leases }, { data: latePayments }, { data: entities }] = await Promise.all([
+  /* Twelve buckets ending with the current month. Built from the calendar,
+     not from the rows, so a month with nothing collected still shows as a
+     gap instead of silently disappearing from the axis. */
+  const monthKeys: string[] = [];
+  for (let i = 11; i >= 0; i -= 1) {
+    const d = new Date(Date.UTC(Number(todayIso.slice(0, 4)), Number(todayIso.slice(5, 7)) - 1 - i, 1));
+    monthKeys.push(d.toISOString().slice(0, 7));
+  }
+  const yearAgoIso = `${monthKeys[0]}-01`;
+
+  const [{ data: properties }, { data: leases }, { data: latePayments }, { data: entities }, { data: notice }, { data: paidHistory }] = await Promise.all([
     supabase.from('properties').select('id, name, city, status, current_value, property_type, entity_id, insurance_expires_on, insurer'),
     supabase
       .from('leases')
@@ -41,7 +52,34 @@ export default async function DashboardPage() {
     // "מי מחזיק במה" — Shai's own words at 0:40. Optional layer: when he has
     // not named any holder, this whole section stays out of the way.
     supabase.from('owner_entities').select('id, name, entity_type').order('name'),
+    // The notice windows are a setting, and the weekly email reads the same
+    // two columns — a number that differs between the screen and the email
+    // is worse than no setting at all.
+    supabase.from('digest_settings')
+      .select('lease_notice_days, insurance_notice_days').eq('id', true).maybeSingle(),
+    // Twelve months of money that actually arrived. Not what was invoiced —
+    // "how much came in" is the question no other screen answers.
+    supabase.from('lease_payments')
+      .select('due_date, amount')
+      .eq('paid', true)
+      .gte('due_date', yearAgoIso)
+      .order('due_date'),
   ]);
+
+  const leaseNoticeDays = notice?.lease_notice_days ?? 90;
+  const insNoticeDays = notice?.insurance_notice_days ?? 30;
+
+  const HE_SHORT = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
+  const byMonth = new Map<string, number>(monthKeys.map((k) => [k, 0]));
+  for (const p of paidHistory ?? []) {
+    const k = p.due_date.slice(0, 7);
+    if (byMonth.has(k)) byMonth.set(k, (byMonth.get(k) ?? 0) + Number(p.amount));
+  }
+  const incomePoints: MonthPoint[] = monthKeys.map((k) => ({
+    iso: k,
+    label: HE_SHORT[Number(k.slice(5, 7)) - 1],
+    amount: byMonth.get(k) ?? 0,
+  }));
 
   const props = properties ?? [];
   const activeLeases = leases ?? [];
@@ -56,7 +94,7 @@ export default async function DashboardPage() {
 
   const expiring = activeLeases
     .map((l) => ({ ...l, days: daysUntil(l.end_date) }))
-    .filter((l) => l.days <= 90);
+    .filter((l) => l.days <= leaseNoticeDays);
 
   /* One row per lease, not per unpaid month: three late months for the same
      tenant is one conversation, not three alerts. Keeps the oldest due date,
@@ -131,7 +169,7 @@ export default async function DashboardPage() {
      actually entered: a null insurance date means "not tracked", never
      "overdue". */
   const insuranceDue = props
-    .filter((p) => p.insurance_expires_on && daysUntil(p.insurance_expires_on) <= 30)
+    .filter((p) => p.insurance_expires_on && daysUntil(p.insurance_expires_on) <= insNoticeDays)
     .map((p) => ({ ...p, days: daysUntil(p.insurance_expires_on as string) }))
     .sort((a, b) => a.days - b.days);
 
@@ -299,6 +337,8 @@ export default async function DashboardPage() {
           <StatCard title="הכנסה שנתית" value={ILS(monthlyIncome * 12)} icon={FileText} tone="neutral" />
         </div>
       </section>
+
+      <IncomeChart points={incomePoints} />
 
       {/* ── Occupancy ───────────────────────────────────── */}
       <section>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus, LifeBuoy, CalendarDays, CircleCheck, Users, Building, UserRound, Ellipsis, X, FolderOpen } from 'lucide-react';
+import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus, LifeBuoy, CalendarDays, CircleCheck, Users, Building, UserRound, Ellipsis, X, FolderOpen, CircleDollarSign, Wrench, Settings, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
 import AssistantChat from '@/components/AssistantChat';
@@ -37,7 +37,11 @@ const NAV_GROUPS = [
     { href: '/tenants', label: 'שוכרים', icon: UserRound, onPhone: false },
   ]},
   { title: 'תזרימים', items: [
+    { href: '/collection', label: 'גבייה', icon: CircleDollarSign, onPhone: false },
     { href: '/leases', label: 'חוזים', icon: FileText, onPhone: false },
+  ]},
+  { title: 'אחזקה', items: [
+    { href: '/vendors', label: 'בעלי מקצוע', icon: Wrench, onPhone: false },
   ]},
   { title: 'ארכיון', items: [
     { href: '/documents', label: 'מסמכים', icon: FolderOpen, onPhone: false },
@@ -61,6 +65,9 @@ const BAR_TITLES: Record<string, string> = {
   '/properties/new': 'נכס חדש',
   '/tenants': 'שוכרים',
   '/documents': 'מסמכים',
+  '/collection': 'גבייה',
+  '/vendors': 'בעלי מקצוע',
+  '/settings': 'הגדרות',
 };
 
 function isActive(pathname: string, href: string) {
@@ -181,6 +188,36 @@ export default function AppShell({ children, email, firstName }: {
 
 
             <div className="flex items-center gap-1 md:gap-2 shrink-0">
+              {/* The assistant has searched properties, tenants and screens
+                  since day one, behind ⌘K and a floating button. Nobody finds
+                  a keyboard shortcut they were never told about, so the search
+                  now looks like search. It opens the same panel. */}
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-search'))}
+                aria-label="חיפוש"
+                className="press hidden md:flex items-center gap-2 rounded-full bg-fill/70 hover:bg-fill ps-3 pe-2 py-1.5 text-label-tertiary"
+              >
+                <Search size={15} strokeWidth={2.2} />
+                <span className="text-[13px]">חיפוש</span>
+                <kbd className="text-[10.5px] font-sans bg-surface rounded px-1.5 py-0.5 border border-separator" dir="ltr">⌘K</kbd>
+              </button>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-search'))}
+                aria-label="חיפוש"
+                className="press md:hidden touch-target rounded-full text-label-secondary hover:text-accent flex items-center justify-center"
+              >
+                <Search size={18} strokeWidth={2} />
+              </button>
+              <Link
+                href="/settings"
+                className="press touch-target rounded-full text-label-secondary hover:text-accent flex items-center justify-center"
+                title="הגדרות"
+                aria-label="הגדרות"
+              >
+                <Settings size={18} strokeWidth={2} />
+              </Link>
               <a
                 href={SUPPORT_URL}
                 className="press touch-target rounded-full text-label-secondary hover:text-accent flex items-center justify-center"
@@ -344,9 +381,17 @@ export default function AppShell({ children, email, firstName }: {
               ))}
 
               <Link
+                href="/settings"
+                onClick={() => setMoreOpen(false)}
+                className="press flex items-center gap-2.5 mt-3 px-3 py-3 rounded-2xl bg-fill/60 text-label text-[15px] font-medium"
+              >
+                <Settings size={18} strokeWidth={2} />
+                <span>הגדרות</span>
+              </Link>
+              <Link
                 href="/properties/new"
                 onClick={() => setMoreOpen(false)}
-                className="press flex items-center justify-center gap-2 mt-4 px-3 py-3 rounded-2xl bg-accent text-white text-[15px] font-semibold"
+                className="press flex items-center justify-center gap-2 mt-2 px-3 py-3 rounded-2xl bg-accent text-white text-[15px] font-semibold"
               >
                 <Plus size={18} strokeWidth={2.5} />
                 <span>נכס חדש</span>

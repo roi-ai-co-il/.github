@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Sparkles, X, Search, ChevronRight, ChevronLeft, Phone, User, Building2, FileText,
   LayoutGrid, Plus, Wallet, Landmark, KeyRound, CalendarClock, PieChart, Send, CircleDollarSign,
-  History, FolderOpen, CalendarDays, CircleCheck, Users, Building, UserRound,
+  History, FolderOpen, CalendarDays, CircleCheck, Users, Building, UserRound, Wrench, Settings,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -158,6 +158,9 @@ const ACTIONS: ActionDef[] = [
   { id: 'nav-sites', label: 'אתרים', hint: 'בניינים ומתחמים', icon: Building, group: 'nav', keywords: 'אתרים בניינים מתחם', href: '/buildings' },
   { id: 'nav-entities', label: 'ישויות', hint: 'מי מחזיק במה', icon: Users, group: 'nav', keywords: 'ישויות חברות בעלות מחזיק', href: '/entities' },
   { id: 'nav-tenants', label: 'שוכרים', hint: 'כל הדיירים', icon: UserRound, group: 'nav', keywords: 'שוכרים דיירים', href: '/tenants' },
+  { id: 'nav-collect', label: 'גבייה', hint: 'מי חייב לי החודש', icon: CircleDollarSign, group: 'nav', keywords: 'גבייה לגבות חוב חייב תשלום שכד שכר דירה כסף', href: '/collection' },
+  { id: 'nav-vendors', label: 'בעלי מקצוע', hint: 'אינסטלטור, חשמלאי, מזגנים', icon: Wrench, group: 'nav', keywords: 'בעלי מקצוע אינסטלטור חשמלאי מזגן תיקון קבלן ספק טלפון', href: '/vendors' },
+  { id: 'nav-settings', label: 'הגדרות', hint: 'המייל השבועי וההתרעות', icon: Settings, group: 'nav', keywords: 'הגדרות מייל שבועי התרעות תזכורות יום כתובת', href: '/settings' },
 ];
 
 const LOAD_ERROR = 'לא הצלחתי לטעון את הנתונים. בדוק את החיבור ונסה שוב.';
@@ -207,6 +210,14 @@ export default function AssistantChat() {
   const aiScrollRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // The header's search button opens this same panel — one search in the app,
+  // reached two ways, rather than a second one that knows less.
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener('open-search', onOpen);
+    return () => window.removeEventListener('open-search', onOpen);
+  }, []);
 
   // ⌘K / Ctrl+K toggles the panel from anywhere in the app.
   useEffect(() => {

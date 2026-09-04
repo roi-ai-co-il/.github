@@ -404,6 +404,140 @@ export type Database = {
           },
         ]
       }
+      digest_settings: {
+        Row: {
+          enabled: boolean
+          greeting_name: string
+          id: boolean
+          insurance_notice_days: number
+          last_request_id: number | null
+          last_sent_at: string | null
+          last_status: string | null
+          lease_notice_days: number
+          recipient: string
+          send_dow: number
+          sender: string
+        }
+        Insert: {
+          enabled?: boolean
+          greeting_name?: string
+          id?: boolean
+          insurance_notice_days?: number
+          last_request_id?: number | null
+          last_sent_at?: string | null
+          last_status?: string | null
+          lease_notice_days?: number
+          recipient: string
+          send_dow?: number
+          sender?: string
+        }
+        Update: {
+          enabled?: boolean
+          greeting_name?: string
+          id?: boolean
+          insurance_notice_days?: number
+          last_request_id?: number | null
+          last_sent_at?: string | null
+          last_status?: string | null
+          lease_notice_days?: number
+          recipient?: string
+          send_dow?: number
+          sender?: string
+        }
+        Relationships: []
+      }
+      receipts: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          issued_at: string
+          issuer_name: string
+          number: number
+          owner: string
+          paid_date: string | null
+          payment_id: string
+          period_label: string
+          property_address: string | null
+          property_name: string
+          tenant_name: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          issued_at?: string
+          issuer_name: string
+          number?: number
+          owner?: string
+          paid_date?: string | null
+          payment_id: string
+          period_label: string
+          property_address?: string | null
+          property_name: string
+          tenant_name: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          issued_at?: string
+          issuer_name?: string
+          number?: number
+          owner?: string
+          paid_date?: string | null
+          payment_id?: string
+          period_label?: string
+          property_address?: string | null
+          property_name?: string
+          tenant_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: true
+            referencedRelation: "lease_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          owner: string
+          phone: string | null
+          trade: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          owner?: string
+          phone?: string | null
+          trade?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          owner?: string
+          phone?: string | null
+          trade?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           created_at: string
