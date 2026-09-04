@@ -124,6 +124,36 @@ function validEnumFilters(table: string, filters: { column: string; op: string; 
 
 const MAX_LIMIT = 100;
 
+/**
+ * Every total the rows can support, worked out in JavaScript.
+ *
+ * A language model asked to add fifteen seven-figure numbers will produce a
+ * plausible one, and a plausible total is indistinguishable from a correct one
+ * in a fluent Hebrew sentence. So the arithmetic happens here and the answer
+ * step is told to quote it rather than do its own.
+ */
+function summarise(rows: unknown[]): string {
+  if (!rows.length) return '';
+  const lines: string[] = [`count = ${rows.length}`];
+  const numeric = new Map<string, number[]>();
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    for (const [k, v] of Object.entries(row as Record<string, unknown>)) {
+      const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
+      if (!Number.isFinite(n)) continue;
+      // An id or a year is a number and is never worth totalling.
+      if (/(^|_)(id|day|no|floor)$/.test(k)) continue;
+      numeric.set(k, [...(numeric.get(k) ?? []), n]);
+    }
+  }
+  for (const [col, values] of numeric) {
+    if (values.length < 2) continue;
+    const sum = values.reduce((a, b) => a + b, 0);
+    lines.push(`sum(${col}) = ${sum} · avg(${col}) = ${Math.round(sum / values.length)} · n = ${values.length}`);
+  }
+  return lines.join('\n');
+}
+
 function validColumns(table: string, columns: string[]): boolean {
   const allowed = ALLOWED_COLUMNS[table];
   if (!allowed) return false;
@@ -160,6 +190,7 @@ const FORMAT_PROMPT = `You are a Hebrew-speaking assistant inside a real-estate 
 Format the fetched data into a clear, concise Hebrew answer to the user's question.
 - Currency is ₪ with thousands commas (e.g. ₪12,500). Compute sums/averages yourself when asked.
 - Short sentences; a short list when several items are returned.
+- NEVER add, average or otherwise calculate numbers yourself. Any total you need is already given under COMPUTED TOTALS — quote it exactly. If the total you need is not there, say what you can from the rows rather than working it out.
 - If a query result is empty, say לא נמצאו נתונים מתאימים — never invent values.
 - If the data block says a query FAILED, say you could not read that data right now; do not treat failure as "no results".
 - Plain text only — no markdown, no asterisks, no bold. Bullet lists use the character • .
@@ -366,10 +397,19 @@ export async function POST(req: Request) {
     }
 
     /* ── Phase C: answer in Hebrew ── */
+    /* Totals are computed HERE, not by the model.
+       Asked for the portfolio's value it answered ₪50,000,000 against a real
+       ₪48,000,000 — it had the right rows and added them up wrong, which is the
+       worst kind of wrong because the sentence around it is perfectly fluent.
+       Every sum, count and average the rows can support is handed over already
+       calculated, and the prompt forbids arithmetic. */
     const dataBlock = results
-      .map((r) => (r.failed
-        ? `${r.table}: FAILED (could not be read)`
-        : `${r.table}:\n${JSON.stringify(r.data)}`))
+      .map((r) => {
+        if (r.failed) return `${r.table}: FAILED (could not be read)`;
+        const rows = r.data ?? [];
+        const totals = summarise(rows);
+        return `${r.table} (${rows.length} rows)${totals ? `\nCOMPUTED TOTALS — use these exact numbers, do not recalculate:\n${totals}` : ''}\n${JSON.stringify(rows)}`;
+      })
       .join('\n\n');
 
     const question = `התאריך היום: ${today}\nהשאלה: ${message}\n\nהנתונים:\n${dataBlock}`;
