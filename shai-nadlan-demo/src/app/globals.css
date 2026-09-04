@@ -178,15 +178,23 @@ body {
   min-height: 44px;
   min-width: 44px;
 }
-/* The centring is in :where() so it carries ZERO specificity. Written as a
-   plain class it sits after Tailwind's utilities in the sheet and quietly
-   beats them on display — `md:hidden touch-target` rendered a button that was
-   supposed to be phone-only on every screen, with nothing in the markup to
-   suggest why. */
-:where(.touch-target) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+/* This has to be INSIDE a layer, and :where() alone was not enough.
+   `@import "tailwindcss"` declares the layer order, and an unlayered rule
+   beats every layered one no matter how low its specificity — so a plain
+   `.touch-target { display: inline-flex }` in this file was silently winning
+   over `md:hidden`, and a button meant for phones rendered on every screen.
+   In `components` the utilities layer outranks it again, which is the whole
+   point of a utility.
+
+   Everything else in this file is still unlayered. That is a latent version
+   of the same trap for any custom class that sets a property a Tailwind
+   utility also sets. */
+@layer components {
+  .touch-target {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 /* ── Entrance motion ──────────────────────────────────
