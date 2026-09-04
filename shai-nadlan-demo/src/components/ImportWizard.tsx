@@ -20,6 +20,22 @@ import ImportReview from '@/components/ImportReview';
 
 type Step = 'source' | 'sheet' | 'map' | 'review' | 'saving' | 'done';
 
+/**
+ * When an import happened, in Israel time.
+ *
+ * The timezone is pinned on purpose. Without it the server renders this in UTC
+ * and the browser renders it in the reader's own zone, the two strings differ,
+ * and React throws a hydration error on the whole page — which is exactly what
+ * happened the moment there was a first import to list. It is also simply the
+ * right answer: the landlord is in Israel wherever the page is rendered.
+ */
+function batchTime(iso: string): string {
+  return new Date(iso).toLocaleString('he-IL', {
+    day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+    timeZone: 'Asia/Jerusalem',
+  });
+}
+
 export interface EntityOption { id: string; name: string }
 
 export interface RecentBatch {
@@ -398,7 +414,7 @@ function SourceStep({
                     {b.filename ?? 'טבלה שהודבקה'}
                   </p>
                   <p className="text-[12px] text-label-tertiary">
-                    {new Date(b.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                    {batchTime(b.created_at)}
                     {b.counts?.properties != null && ` · ${b.counts.properties} נכסים`}
                   </p>
                 </div>
