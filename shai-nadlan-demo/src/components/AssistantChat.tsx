@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { NAV_ITEMS } from '@/lib/nav';
 import { WhatsAppIcon } from '@/components/ContactButtons';
 import { ILS, heDate, daysUntil, waLink } from '@/lib/format';
 import { PROPERTY_TYPES, PROPERTY_STATUS, leaseUrgency, URGENCY_STYLE } from '@/lib/domain';
@@ -148,18 +149,20 @@ const ACTIONS: ActionDef[] = [
   { id: 'value', label: 'מה שווי התיק', hint: 'שווי נוכחי של כל הנכסים', icon: Landmark, group: 'answers', keywords: 'שווי תיק נכסים ערך הון כמה שווה' },
   { id: 'summary', label: 'סיכום מהיר של התיק', hint: 'נכסים, תפוסה, הכנסה ותשואה', icon: PieChart, group: 'answers', keywords: 'סיכום מצב כללי סטטוס דוח מספרים תשואה תפוסה' },
 
+  /* Every screen in the nav, derived — never a second hand-written copy.
+     The palette used to hold its own list of 13 destinations, and it was
+     already stale: תיקונים existed in the sidebar and could not be found in
+     search at all. Adding a screen to @/lib/nav now reaches all three places. */
+  ...NAV_ITEMS.map((i) => ({
+    id: `nav-${i.href}`,
+    label: i.href === '/' ? 'סקירה' : i.label,
+    hint: i.hint,
+    icon: i.icon,
+    group: 'nav' as const,
+    keywords: `${i.label} ${i.keywords}`,
+    href: i.href,
+  })),
   { id: 'nav-new', label: 'נכס חדש', hint: 'הוספת נכס לתיק', icon: Plus, group: 'nav', keywords: 'חדש הוספה להוסיף נכס', href: '/properties/new' },
-  { id: 'nav-props', label: 'כל הנכסים', hint: 'רשימת הנכסים המלאה', icon: Building2, group: 'nav', keywords: 'נכסים רשימה דירות', href: '/properties' },
-  { id: 'nav-leases', label: 'חוזים', hint: 'כל חוזי השכירות', icon: FileText, group: 'nav', keywords: 'חוזים שכירות רשימה', href: '/leases' },
-  { id: 'nav-home', label: 'סקירה', hint: 'מסך הבית', icon: LayoutGrid, group: 'nav', keywords: 'בית דשבורד ראשי סקירה', href: '/' },
-  { id: 'nav-docs', label: 'מסמכים', hint: 'כל המסמכים של כל הנכסים', icon: FolderOpen, group: 'nav', keywords: 'מסמכים ארכיון קבצים חוזה קבלה ענן', href: '/documents' },
-  { id: 'nav-cal', label: 'יומן', hint: 'תשלומים, סופי חוזה ומשימות', icon: CalendarDays, group: 'nav', keywords: 'יומן לוח שנה תאריכים', href: '/calendar' },
-  { id: 'nav-tasks', label: 'משימות', hint: 'מה פתוח', icon: CircleCheck, group: 'nav', keywords: 'משימות טודו לעשות', href: '/tasks' },
-  { id: 'nav-sites', label: 'אתרים', hint: 'בניינים ומתחמים', icon: Building, group: 'nav', keywords: 'אתרים בניינים מתחם', href: '/buildings' },
-  { id: 'nav-entities', label: 'ישויות', hint: 'מי מחזיק במה', icon: Users, group: 'nav', keywords: 'ישויות חברות בעלות מחזיק', href: '/entities' },
-  { id: 'nav-tenants', label: 'שוכרים', hint: 'כל הדיירים', icon: UserRound, group: 'nav', keywords: 'שוכרים דיירים', href: '/tenants' },
-  { id: 'nav-collect', label: 'גבייה', hint: 'מי חייב לי החודש', icon: CircleDollarSign, group: 'nav', keywords: 'גבייה לגבות חוב חייב תשלום שכד שכר דירה כסף', href: '/collection' },
-  { id: 'nav-vendors', label: 'בעלי מקצוע', hint: 'אינסטלטור, חשמלאי, מזגנים', icon: Wrench, group: 'nav', keywords: 'בעלי מקצוע אינסטלטור חשמלאי מזגן תיקון קבלן ספק טלפון', href: '/vendors' },
   { id: 'nav-settings', label: 'הגדרות', hint: 'המייל השבועי וההתרעות', icon: Settings, group: 'nav', keywords: 'הגדרות מייל שבועי התרעות תזכורות יום כתובת', href: '/settings' },
 ];
 

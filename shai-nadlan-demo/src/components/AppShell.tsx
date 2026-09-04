@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { NAV_GROUPS, NAV_ITEMS } from '@/lib/nav';
 import { LayoutGrid, Building2, FileText, LogOut, Moon, Sun, Plus, LifeBuoy, CalendarDays, CircleCheck, Users, Building, UserRound, Ellipsis, X, FolderOpen, CircleDollarSign, Wrench, Hammer, Settings, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
@@ -24,31 +25,7 @@ const SUPPORT_URL = 'https://tikunim.roiai.co.il';
    ישויות, אתרים, שוכרים, חוזים — lives in the sheet behind עוד, in these
    same groups. Nothing is reachable on the desktop and unreachable on the
    phone. */
-const NAV_GROUPS = [
-  { title: 'כללי', items: [
-    { href: '/', label: 'בית', icon: LayoutGrid, onPhone: true },
-    { href: '/calendar', label: 'יומן', icon: CalendarDays, onPhone: true },
-    { href: '/tasks', label: 'משימות', icon: CircleCheck, onPhone: true },
-  ]},
-  { title: 'התיק', items: [
-    { href: '/entities', label: 'ישויות', icon: Users, onPhone: false },
-    { href: '/buildings', label: 'אתרים', icon: Building, onPhone: false },
-    { href: '/properties', label: 'נכסים', icon: Building2, onPhone: true },
-    { href: '/tenants', label: 'שוכרים', icon: UserRound, onPhone: false },
-  ]},
-  { title: 'תזרימים', items: [
-    { href: '/collection', label: 'גבייה', icon: CircleDollarSign, onPhone: false },
-    { href: '/leases', label: 'חוזים', icon: FileText, onPhone: false },
-  ]},
-  { title: 'אחזקה', items: [
-    { href: '/repairs', label: 'תיקונים', icon: Hammer, onPhone: false },
-    { href: '/vendors', label: 'בעלי מקצוע', icon: Wrench, onPhone: false },
-  ]},
-  { title: 'ארכיון', items: [
-    { href: '/documents', label: 'מסמכים', icon: FolderOpen, onPhone: false },
-  ]},
-];
-const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+/* The one list of screens lives in @/lib/nav — see the note there. */
 const PHONE_NAV = NAV_ITEMS.filter((i) => i.onPhone);
 /* The screens the bar cannot show: עוד stays lit while you are on one of them,
    so the phone never claims you are nowhere. */

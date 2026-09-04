@@ -12,7 +12,10 @@
     "smoke": "node scripts/smoke-routes.mjs",
     "qa:ux": "node scripts/qa-ux.mjs",
     "qa:flows": "node scripts/qa-flows.mjs",
-    "qa:auth": "node scripts/qa-auth.mjs"
+    "qa:auth": "node scripts/qa-auth.mjs",
+    "test:nav": "node scripts/test-nav-coverage.mjs",
+    "qa:registry": "node scripts/qa-registry.mjs",
+    "qa:repairs": "node scripts/qa-repairs.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
