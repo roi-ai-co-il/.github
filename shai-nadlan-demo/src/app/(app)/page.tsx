@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {
   Building2, Wallet, TrendingUp, Landmark,
-  FileText, ChevronLeft, Phone, MessageSquare, AlertCircle,
+  FileText, ChevronLeft, Phone, MessageSquare, AlertCircle, ShieldAlert,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ILS, heDateLong, heDate, daysUntil, waLink, heDays } from '@/lib/format';
@@ -22,10 +22,10 @@ export default async function DashboardPage() {
   }).format(now);
 
   const [{ data: properties }, { data: leases }, { data: latePayments }, { data: entities }] = await Promise.all([
-    supabase.from('properties').select('id, name, city, status, current_value, property_type, entity_id'),
+    supabase.from('properties').select('id, name, city, status, current_value, property_type, entity_id, insurance_expires_on, insurer'),
     supabase
       .from('leases')
-      .select('id, start_date, end_date, monthly_rent, linked_to_cpi, cpi_updated_on, property:properties(id, name, city), tenant:tenants(full_name, phone)')
+      .select('id, start_date, end_date, monthly_rent, linked_to_cpi, cpi_updated_on, deposit, deposit_received, property:properties(id, name, city), tenant:tenants(full_name, phone)')
       .eq('status', 'active')
       .order('end_date', { ascending: true }),
     // Money that is already late outranks a contract that ends later, so the
@@ -126,7 +126,21 @@ export default async function DashboardPage() {
     .filter((l) => l.overdueDays >= 0)
     .sort((a, b) => b.overdueDays - a.overdueDays);
 
-  const needsAttention = late.length + expiring.length + cpiDue.length;
+  /* Insurance about to lapse, and deposits never collected — the two reminders
+     Nadlanitor has that we did not. Both stay silent unless the fact was
+     actually entered: a null insurance date means "not tracked", never
+     "overdue". */
+  const insuranceDue = props
+    .filter((p) => p.insurance_expires_on && daysUntil(p.insurance_expires_on) <= 30)
+    .map((p) => ({ ...p, days: daysUntil(p.insurance_expires_on as string) }))
+    .sort((a, b) => a.days - b.days);
+
+  const depositsOwed = activeLeases.filter(
+    (l) => !l.deposit_received && (l.deposit ?? 0) > 0,
+  );
+
+  const needsAttention =
+    late.length + expiring.length + cpiDue.length + insuranceDue.length + depositsOwed.length;
 
   return (
     <div className="space-y-6">
@@ -212,6 +226,36 @@ export default async function DashboardPage() {
                 </div>
               );
             })}
+            {insuranceDue.slice(0, 2).map((p) => (
+              <div key={`ins-${p.id}`} className="flex items-center gap-3 px-4 py-3">
+                <ShieldAlert size={18} strokeWidth={2.2} className="shrink-0 text-warning" />
+                <Link href={`/properties/${p.id}`} className="press-row flex-1 min-w-0 -m-1 p-1 rounded-lg">
+                  <p className="font-semibold text-[15px] text-label truncate">{p.name}</p>
+                  <p className="text-[13px] text-label-secondary truncate mt-0.5">
+                    {[p.insurer, 'ביטוח'].filter(Boolean).join(' · ')}
+                  </p>
+                </Link>
+                <span className="shrink-0 px-2.5 py-1 rounded-full text-[12px] font-semibold text-warning bg-warning-tint">
+                  {p.days < 0 ? 'פג' : p.days === 0 ? 'מסתיים היום' : `בעוד ${heDays(p.days)}`}
+                </span>
+              </div>
+            ))}
+
+            {depositsOwed.slice(0, 2).map((l) => (
+              <div key={`dep-${l.id}`} className="flex items-center gap-3 px-4 py-3">
+                <Landmark size={18} strokeWidth={2.2} className="shrink-0 text-label-tertiary" />
+                <Link href={`/properties/${l.property?.id}`} className="press-row flex-1 min-w-0 -m-1 p-1 rounded-lg">
+                  <p className="font-semibold text-[15px] text-label truncate">{l.property?.name}</p>
+                  <p className="text-[13px] text-label-secondary truncate mt-0.5">
+                    {l.tenant?.full_name} · {ILS(l.deposit ?? 0)}
+                  </p>
+                </Link>
+                <span className="shrink-0 px-2.5 py-1 rounded-full text-[12px] font-semibold text-label-secondary bg-fill">
+                  פיקדון לא נגבה
+                </span>
+              </div>
+            ))}
+
             {cpiDue.slice(0, 2).map((l) => (
               <div key={`cpi-${l.id}`} className="flex items-center gap-3 px-4 py-3">
                 <TrendingUp size={18} strokeWidth={2.2} className="shrink-0 text-info" />

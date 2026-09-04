@@ -60,6 +60,7 @@ export type Database = {
           cpi_updated_on: string | null
           created_at: string
           deposit: number | null
+          deposit_received: boolean
           end_date: string
           id: string
           linked_to_cpi: boolean
@@ -77,6 +78,7 @@ export type Database = {
           cpi_updated_on?: string | null
           created_at?: string
           deposit?: number | null
+          deposit_received?: boolean
           end_date: string
           id?: string
           linked_to_cpi?: boolean
@@ -94,6 +96,7 @@ export type Database = {
           cpi_updated_on?: string | null
           created_at?: string
           deposit?: number | null
+          deposit_received?: boolean
           end_date?: string
           id?: string
           linked_to_cpi?: boolean
@@ -236,6 +239,8 @@ export type Database = {
           current_value: number | null
           floor_no: number | null
           id: string
+          insurance_expires_on: string | null
+          insurer: string | null
           name: string
           notes: string | null
           owner: string
@@ -258,6 +263,8 @@ export type Database = {
           current_value?: number | null
           floor_no?: number | null
           id?: string
+          insurance_expires_on?: string | null
+          insurer?: string | null
           name: string
           notes?: string | null
           owner?: string
@@ -280,6 +287,8 @@ export type Database = {
           current_value?: number | null
           floor_no?: number | null
           id?: string
+          insurance_expires_on?: string | null
+          insurer?: string | null
           name?: string
           notes?: string | null
           owner?: string

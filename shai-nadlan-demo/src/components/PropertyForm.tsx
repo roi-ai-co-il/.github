@@ -30,6 +30,8 @@ export interface PropertyInitial {
   notes: string | null;
   entity_id: string | null;
   building_id: string | null;
+  insurance_expires_on: string | null;
+  insurer: string | null;
 }
 
 type Entity = { id: string; name: string };
@@ -61,6 +63,8 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
     asking_rent: initial?.asking_rent != null ? String(initial.asking_rent) : '',
     entity_id: initial?.entity_id ?? '',
     building_id: initial?.building_id ?? '',
+    insurance_expires_on: initial?.insurance_expires_on ?? '',
+    insurer: initial?.insurer ?? '',
   });
 
   /* Who legally holds this property. Shai asked for exactly this at 0:40 —
@@ -136,6 +140,9 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
     const payload = {
       entity_id: entityId,
       building_id: buildingId,
+      // Left blank means "not tracked" — no reminder is produced for it.
+      insurance_expires_on: form.insurance_expires_on || null,
+      insurer: form.insurer.trim() || null,
       name: form.name.trim(),
       address: form.address.trim(),
       city: form.city.trim(),
@@ -266,6 +273,20 @@ export default function PropertyForm({ initial }: { initial?: PropertyInitial })
             aria-label="אתר חדש"
           />
           <p className="text-[12px] text-label-tertiary mt-1.5 mr-1">רק אם יש לך יותר מיחידה אחת באותו בניין. אחרת השאר ריק.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="insurance_expires_on" className={labelCls}>ביטוח מבנה — עד מתי</label>
+            <input id="insurance_expires_on" type="date" dir="ltr" className={inputCls}
+              value={form.insurance_expires_on} onChange={(e) => set('insurance_expires_on', e.target.value)} />
+            <p className="text-[12px] text-label-tertiary mt-1.5 mr-1">נזכיר לך 30 יום לפני. אפשר להשאיר ריק.</p>
+          </div>
+          <div>
+            <label htmlFor="insurer" className={labelCls}>חברת הביטוח</label>
+            <input id="insurer" className={inputCls} value={form.insurer}
+              onChange={(e) => set('insurer', e.target.value)} placeholder="לא חובה" />
+          </div>
         </div>
 
         <div>

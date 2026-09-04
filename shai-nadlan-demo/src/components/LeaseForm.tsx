@@ -71,6 +71,9 @@ export default function LeaseForm({
   const [endDate, setEndDate] = useState(isoPlusYear(today));
   const [paymentDay, setPaymentDay] = useState('1');
   const [deposit, setDeposit] = useState('');
+  /* Whether it was actually collected — the amount alone never told us, which
+     is why a deposit could sit uncollected for a year with nothing saying so. */
+  const [depositReceived, setDepositReceived] = useState(false);
   const [cpi, setCpi] = useState(false);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -158,6 +161,7 @@ export default function LeaseForm({
         monthly_rent: Number(rent),
         payment_day: Number(paymentDay),
         deposit: deposit === '' ? null : Number(deposit),
+        deposit_received: depositReceived,
         linked_to_cpi: cpi,
         status: 'active',
         notes: notes.trim() || null,
@@ -334,6 +338,17 @@ export default function LeaseForm({
             <label htmlFor="deposit" className={labelCls}>פיקדון (₪)</label>
             <input id="deposit" inputMode="numeric" className={inputCls} value={deposit} onChange={(e) => setDeposit(e.target.value)} placeholder="לא חובה" />
             {fieldErrors.deposit && <p className="text-[13px] text-danger font-medium mt-1.5 mr-1">{fieldErrors.deposit}</p>}
+            {deposit !== '' && Number(deposit) > 0 && (
+              <label className="press flex items-center gap-2.5 mt-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={depositReceived}
+                  onChange={(e) => setDepositReceived(e.target.checked)}
+                  className="w-[18px] h-[18px] accent-[var(--color-accent)]"
+                />
+                <span className="text-[14px] text-label-secondary">הפיקדון כבר התקבל</span>
+              </label>
+            )}
           </div>
           <button
             type="button"
