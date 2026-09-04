@@ -59,6 +59,18 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
       ? ((property.current_value - property.purchase_price) / property.purchase_price) * 100
       : null;
 
+  /* Price per square metre — the column Nadlanitor shows on its rental table
+     and the number this market actually compares properties by. Derived, never
+     stored: rent and area already exist, and a second copy of a derived figure
+     is a drift generator. Uses the signed rent when there is a live lease and
+     falls back to the asking rent for a vacant flat, so an empty property still
+     shows what it is worth per metre. */
+  const rentForSqm = activeLease?.monthly_rent ?? property.asking_rent ?? null;
+  const pricePerSqm =
+    rentForSqm != null && property.area_sqm != null && property.area_sqm > 0
+      ? rentForSqm / property.area_sqm
+      : null;
+
   const facts = [
     { icon: Home, label: 'סוג נכס', value: PROPERTY_TYPES[property.property_type] ?? property.property_type },
     { icon: BedDouble, label: 'חדרים', value: property.rooms != null ? `${property.rooms}` : null },
@@ -69,6 +81,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
     { icon: TrendingUp, label: 'שווי נוכחי', value: property.current_value != null ? ILS(property.current_value) : null },
     { icon: TrendingUp, label: 'עליית ערך', value: appreciation != null ? `${appreciation > 0 ? '+' : ''}${appreciation.toFixed(0)}%` : null },
     { icon: Wallet, label: 'שכ״ד מבוקש', value: property.asking_rent != null ? ILS(property.asking_rent) : null },
+    { icon: Ruler, label: 'מחיר למ״ר', value: pricePerSqm != null ? `${ILS(Math.round(pricePerSqm))} למ״ר` : null },
   ].filter((f) => f.value != null);
 
   return (
