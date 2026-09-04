@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Building2, Search, BedDouble, Ruler, Plus, X, LayoutGrid, Rows3, Pencil } from 'lucide-react';
+import { Building2, Search, BedDouble, Ruler, Plus, X, LayoutGrid, Rows3, Pencil, UploadCloud } from 'lucide-react';
 import { ILS, waLink } from '@/lib/format';
 import { PROPERTY_TYPES } from '@/lib/domain';
 import { StatusBadge, EmptyState } from '@/components/ui';
@@ -91,13 +91,22 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
           <h1 className="text-[30px] font-bold text-label tracking-tight leading-tight">נכסים</h1>
           <p className="text-[13px] text-label-tertiary mt-0.5">{properties.length} נכסים בתיק</p>
         </div>
-        <Link
-          href="/properties/new"
-          className="press hidden md:inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-accent text-white text-[14px] font-semibold shrink-0"
-        >
-          <Plus size={15} strokeWidth={2.5} />
-          <span>נכס חדש</span>
-        </Link>
+        <div className="hidden md:flex items-center gap-2 shrink-0">
+          <Link
+            href="/properties/import"
+            className="press inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-surface-sunken text-label text-[14px] font-semibold border border-separator"
+          >
+            <UploadCloud size={15} strokeWidth={2.4} />
+            <span>ייבוא מאקסל</span>
+          </Link>
+          <Link
+            href="/properties/new"
+            className="press inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-accent text-white text-[14px] font-semibold"
+          >
+            <Plus size={15} strokeWidth={2.5} />
+            <span>נכס חדש</span>
+          </Link>
+        </div>
       </div>
 
       {/* ── Search field (iOS style: filled, rounded, inline clear) ──── */}
@@ -162,12 +171,13 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
 
       {/* ── Grid ────────────────────────────────────────── */}
       {filtered.length === 0 ? (
-        <div className="bg-surface rounded-2xl border border-separator">
-          <EmptyState
-            icon={Building2}
-            text={search || filter !== 'all' ? 'לא נמצאו נכסים תואמים' : 'אין נכסים עדיין — הוסף את הנכס הראשון'}
-          />
-        </div>
+        properties.length === 0 ? (
+          <FirstRun />
+        ) : (
+          <div className="bg-surface rounded-2xl border border-separator">
+            <EmptyState icon={Building2} text="לא נמצאו נכסים תואמים" />
+          </div>
+        )
       ) : (
         <div className="space-y-6">
           {groups.map((g) => (
@@ -348,6 +358,44 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * What an empty portfolio should say.
+ *
+ * A wall of zeros tells a new user that the system is broken. This tells them
+ * what to do, and puts the fast route first: 28 flats typed by hand is the
+ * reason a system stays empty.
+ */
+function FirstRun() {
+  return (
+    <div className="bg-surface rounded-2xl border border-separator p-8 md:p-10 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-accent-tint text-accent flex items-center justify-center mx-auto">
+        <Building2 size={26} strokeWidth={1.8} />
+      </div>
+      <h2 className="text-[20px] font-bold text-label mt-3.5">נתחיל מהנכסים שלך</h2>
+      <p className="text-[15px] text-label-secondary mt-1.5 max-w-md mx-auto leading-relaxed">
+        יש לך את הנכסים בקובץ אקסל או בטבלה? ייבא אותם בבת אחת — נזהה לבד מה כל עמודה,
+        תראה כל שורה לפני שמירה, ואפשר לבטל הכל בלחיצה.
+      </p>
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mt-6">
+        <Link
+          href="/properties/import"
+          className="press touch-target w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-accent text-white text-[16px] font-semibold"
+        >
+          <UploadCloud size={18} strokeWidth={2.2} />
+          ייבוא מאקסל
+        </Link>
+        <Link
+          href="/properties/new"
+          className="press touch-target w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-surface-sunken text-label text-[16px] font-semibold"
+        >
+          <Plus size={17} strokeWidth={2.4} />
+          הוספה ידנית
+        </Link>
+      </div>
     </div>
   );
 }

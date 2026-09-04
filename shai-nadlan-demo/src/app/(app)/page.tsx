@@ -2,6 +2,7 @@ import Link from 'next/link';
 import {
   Building2, Wallet, TrendingUp, Landmark,
   FileText, ChevronLeft, Phone, MessageSquare, AlertCircle, ShieldAlert,
+  UploadCloud, Plus,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ILS, heDateLong, heDate, daysUntil, waLink, heDays } from '@/lib/format';
@@ -84,13 +85,22 @@ export default async function DashboardPage() {
   const props = properties ?? [];
   const activeLeases = leases ?? [];
 
-  const totalValue = props.reduce((s, p) => s + (p.current_value ?? 0), 0);
+  /* A portfolio where nobody has filled in a value is worth an unknown amount,
+     not ₪0 — and a yield computed from it is a division with neither a
+     numerator nor a denominator. "Not known yet" is its own answer and gets its
+     own display, exactly as the assistant already does it. */
+  const valued = props.filter((p) => p.current_value != null);
+  const totalValue = valued.length
+    ? valued.reduce((s, p) => s + (p.current_value ?? 0), 0)
+    : null;
   const monthlyIncome = activeLeases.reduce((s, l) => s + l.monthly_rent, 0);
   const rented = props.filter((p) => p.status === 'rented').length;
   const vacant = props.filter((p) => p.status === 'vacant').length;
   const renovation = props.filter((p) => p.status === 'renovation').length;
   const forSale = props.filter((p) => p.status === 'for_sale').length;
-  const grossYield = totalValue > 0 ? ((monthlyIncome * 12) / totalValue) * 100 : 0;
+  const grossYield = totalValue != null && totalValue > 0
+    ? ((monthlyIncome * 12) / totalValue) * 100
+    : null;
 
   const expiring = activeLeases
     .map((l) => ({ ...l, days: daysUntil(l.end_date) }))
@@ -328,19 +338,40 @@ export default async function DashboardPage() {
       )}
 
       {/* ── Portfolio ───────────────────────────────────── */}
-      <section>
-        <h2 className="text-[15px] font-bold text-label tracking-tight px-1 mb-2">התיק</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger">
-          <StatCard title="שווי" value={ILS(totalValue)} icon={Landmark} tone="accent" />
-          <StatCard title="הכנסה חודשית" value={ILS(monthlyIncome)} icon={Wallet} tone="success" />
-          <StatCard title="תשואה ברוטו" value={`${grossYield.toFixed(1)}%`} icon={TrendingUp} tone="info" sub="שנתית" />
-          <StatCard title="הכנסה שנתית" value={ILS(monthlyIncome * 12)} icon={FileText} tone="neutral" />
-        </div>
-      </section>
+      {props.length === 0 ? (
+        <DashboardFirstRun />
+      ) : (
+        <>
+          <section>
+            <h2 className="text-[15px] font-bold text-label tracking-tight px-1 mb-2">התיק</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger">
+              <StatCard
+                title="שווי"
+                value={totalValue == null ? '—' : ILS(totalValue)}
+                sub={totalValue == null
+                  ? 'אף נכס עדיין בלי שווי'
+                  : valued.length < props.length ? `לפי ${valued.length} מתוך ${props.length} נכסים` : undefined}
+                icon={Landmark}
+                tone="accent"
+              />
+              <StatCard title="הכנסה חודשית" value={ILS(monthlyIncome)} icon={Wallet} tone="success" />
+              <StatCard
+                title="תשואה ברוטו"
+                value={grossYield == null ? '—' : `${grossYield.toFixed(1)}%`}
+                icon={TrendingUp}
+                tone="info"
+                sub={grossYield == null ? 'צריך שווי נוכחי' : 'שנתית'}
+              />
+              <StatCard title="הכנסה שנתית" value={ILS(monthlyIncome * 12)} icon={FileText} tone="neutral" />
+            </div>
+          </section>
 
-      <IncomeChart points={incomePoints} />
+          <IncomeChart points={incomePoints} />
+        </>
+      )}
 
       {/* ── Occupancy ───────────────────────────────────── */}
+      {props.length > 0 && (
       <section>
         <h2 className="text-[15px] font-bold text-label tracking-tight px-1 mb-2">תפוסה</h2>
         <div className="bg-surface rounded-2xl border border-separator p-4">
@@ -360,6 +391,7 @@ export default async function DashboardPage() {
           />
         </div>
       </section>
+      )}
 
       {/* ── Who holds what ──────────────────────────────── */}
       {holders.length > 0 && (
@@ -436,5 +468,44 @@ export default async function DashboardPage() {
         <span>כל הנכסים</span>
       </Link>
     </div>
+  );
+}
+
+/**
+ * The dashboard of a system with nothing in it yet.
+ *
+ * Before this, an empty portfolio rendered a wall of zeros — including a
+ * "תשואה ברוטו 0.0%" that was a division with no numerator and no denominator.
+ * A number nobody can compute is not 0; it is unknown, and a first screen
+ * should say what to do rather than report fictional performance.
+ */
+function DashboardFirstRun() {
+  return (
+    <section className="bg-surface rounded-2xl border border-separator p-6 md:p-8">
+      <div className="w-12 h-12 rounded-2xl bg-accent-tint text-accent flex items-center justify-center">
+        <Landmark size={23} strokeWidth={1.9} />
+      </div>
+      <h2 className="text-[20px] font-bold text-label mt-3">המערכת מוכנה — חסרים רק הנכסים</h2>
+      <p className="text-[15px] text-label-secondary mt-1.5 leading-relaxed max-w-lg">
+        ברגע שהנכסים ייכנסו, המסך הזה יראה את השווי, ההכנסה החודשית, התשואה,
+        מי לא שילם ואילו חוזים מסתיימים. הדרך המהירה היא לייבא את הטבלה שכבר יש לך.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-2 mt-5">
+        <Link
+          href="/properties/import"
+          className="press touch-target inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-accent text-white text-[15px] font-semibold"
+        >
+          <UploadCloud size={17} strokeWidth={2.2} />
+          ייבוא מאקסל
+        </Link>
+        <Link
+          href="/properties/new"
+          className="press touch-target inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-surface-sunken text-label text-[15px] font-semibold"
+        >
+          <Plus size={16} strokeWidth={2.4} />
+          הוספת נכס ידנית
+        </Link>
+      </div>
+    </section>
   );
 }

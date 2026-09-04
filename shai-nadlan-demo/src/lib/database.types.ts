@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      import_batches: {
+        Row: {
+          counts: Json
+          created_at: string
+          filename: string | null
+          id: string
+          owner: string
+          source: string
+          undone_at: string | null
+        }
+        Insert: {
+          counts?: Json
+          created_at?: string
+          filename?: string | null
+          id?: string
+          owner?: string
+          source?: string
+          undone_at?: string | null
+        }
+        Update: {
+          counts?: Json
+          created_at?: string
+          filename?: string | null
+          id?: string
+          owner?: string
+          source?: string
+          undone_at?: string | null
+        }
+        Relationships: []
+      }
       lease_payments: {
         Row: {
           amount: number
@@ -63,6 +93,7 @@ export type Database = {
           deposit_received: boolean
           end_date: string
           id: string
+          import_batch_id: string | null
           linked_to_cpi: boolean
           monthly_rent: number
           notes: string | null
@@ -81,6 +112,7 @@ export type Database = {
           deposit_received?: boolean
           end_date: string
           id?: string
+          import_batch_id?: string | null
           linked_to_cpi?: boolean
           monthly_rent: number
           notes?: string | null
@@ -99,6 +131,7 @@ export type Database = {
           deposit_received?: boolean
           end_date?: string
           id?: string
+          import_batch_id?: string | null
           linked_to_cpi?: boolean
           monthly_rent?: number
           notes?: string | null
@@ -111,6 +144,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "leases_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "leases_property_id_fkey"
             columns: ["property_id"]
@@ -134,13 +174,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          cpi_updated_on?: string | null
           created_at?: string
           note?: string | null
           user_id: string
         }
         Update: {
-          cpi_updated_on?: string | null
           created_at?: string
           note?: string | null
           user_id?: string
@@ -162,7 +200,6 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
-          cpi_updated_on?: string | null
           created_at?: string
           entity_id?: string | null
           id?: string
@@ -174,7 +211,6 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
-          cpi_updated_on?: string | null
           created_at?: string
           entity_id?: string | null
           id?: string
@@ -239,6 +275,7 @@ export type Database = {
           current_value: number | null
           floor_no: number | null
           id: string
+          import_batch_id: string | null
           insurance_expires_on: string | null
           insurer: string | null
           name: string
@@ -263,6 +300,7 @@ export type Database = {
           current_value?: number | null
           floor_no?: number | null
           id?: string
+          import_batch_id?: string | null
           insurance_expires_on?: string | null
           insurer?: string | null
           name: string
@@ -287,6 +325,7 @@ export type Database = {
           current_value?: number | null
           floor_no?: number | null
           id?: string
+          import_batch_id?: string | null
           insurance_expires_on?: string | null
           insurer?: string | null
           name?: string
@@ -300,6 +339,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "properties_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "properties_building_id_fkey"
             columns: ["building_id"]
@@ -588,6 +634,7 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          import_batch_id: string | null
           notes: string | null
           owner: string
           phone: string | null
@@ -598,6 +645,7 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
+          import_batch_id?: string | null
           notes?: string | null
           owner?: string
           phone?: string | null
@@ -608,12 +656,21 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          import_batch_id?: string | null
           notes?: string | null
           owner?: string
           phone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tenants_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

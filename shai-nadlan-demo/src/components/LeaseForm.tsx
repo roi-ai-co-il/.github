@@ -170,15 +170,27 @@ export default function LeaseForm({
 
       // The monthly payment schedule is born with the lease — one row per
       // due month, so collection tracking needs no setup.
+      // ISO strings throughout, never Date objects: `new Date('2026-03-01')` is
+      // midnight UTC while `new Date(y, m, d)` is midnight LOCAL, and comparing
+      // the two east of Greenwich made the first due date look earlier than the
+      // lease start — which silently dropped the first month of every schedule.
+      // Found by the importer's tests, which generate the identical schedule.
       const schedule: { lease_id: string; due_date: string; amount: number }[] = [];
-      const end = new Date(endDate);
-      const startD = new Date(startDate);
-      const dueDay = Math.min(Number(paymentDay), 28);
-      let d = new Date(startD.getFullYear(), startD.getMonth(), dueDay);
-      if (d < startD) d.setMonth(d.getMonth() + 1);
-      while (d <= end && schedule.length < 36) {
-        schedule.push({ lease_id: newLease.id, due_date: d.toISOString().slice(0, 10), amount: Number(rent) });
-        d = new Date(d.getFullYear(), d.getMonth() + 1, dueDay);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const isoOf = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
+      const dueDay = Math.min(Math.max(Number(paymentDay), 1), 28);
+      let [yy, mm] = startDate.split('-').map(Number);
+      let due = isoOf(yy, mm, dueDay);
+      if (due < startDate) {
+        mm += 1;
+        if (mm > 12) { mm = 1; yy += 1; }
+        due = isoOf(yy, mm, dueDay);
+      }
+      while (due <= endDate && schedule.length < 36) {
+        schedule.push({ lease_id: newLease.id, due_date: due, amount: Number(rent) });
+        mm += 1;
+        if (mm > 12) { mm = 1; yy += 1; }
+        due = isoOf(yy, mm, dueDay);
       }
       if (schedule.length) {
         const { error: sErr } = await supabase.from('lease_payments').insert(schedule);

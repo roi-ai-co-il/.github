@@ -6,12 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:import": "node scripts/test-import.mjs",
+    "test:import:controls": "node scripts/test-import-controls.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
+    "fflate": "^0.8.3",
     "lucide-react": "^0.545.0",
     "next": "^15.5.4",
     "react": "^19.2.0",

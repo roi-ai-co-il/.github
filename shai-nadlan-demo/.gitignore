@@ -9,3 +9,6 @@ test-results
 .e2e-cookie
 design/*-design-directions.html
 .env*
+
+# importer test/control scratch trees
+.tmp-import-*
