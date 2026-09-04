@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Building, Loader2, Plus, Trash2, Users } from 'lucide-react';
+import { Building, ChevronLeft, Loader2, Plus, Trash2, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { ILS } from '@/lib/format';
 import { Group, Rows, EmptyState } from '@/components/ui';
@@ -127,7 +127,11 @@ export default function RegistryList({
           <Rows>
             {rows.map((r) => (
               <div key={r.id} className="flex items-center gap-3 px-4 py-3">
-                <Link href={`/properties?${table === 'buildings' ? 'building' : 'entity'}=${r.id}`}
+                {/* The name used to link to /properties?building=<id>, a query
+                    the properties screen never read — so clicking a site showed
+                    the whole portfolio, which reads as a broken link rather
+                    than a filter. It now opens the site itself. */}
+                <Link href={`/${table === 'buildings' ? 'buildings' : 'entities'}/${r.id}`}
                   className="press-row flex-1 min-w-0 -m-1 p-1 rounded-lg">
                   <p className="font-semibold text-[15px] text-label truncate">{r.name}</p>
                   <p className="text-[13px] text-label-secondary truncate mt-0.5">
@@ -138,6 +142,9 @@ export default function RegistryList({
                 {r.value > 0 && (
                   <span className="text-[15px] font-semibold text-label tabular-nums shrink-0">{ILS(r.value)}</span>
                 )}
+                {/* Nothing on the row said it could be opened. A chevron is the
+                    one mark that reads as "there is more behind this". */}
+                <ChevronLeft size={17} strokeWidth={2.2} className="shrink-0 text-label-tertiary" aria-hidden />
                 <button
                   type="button"
                   onClick={() => setPendingDelete(r)}

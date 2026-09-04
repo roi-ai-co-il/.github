@@ -33,7 +33,29 @@ const FILTERS = [
   { key: 'for_sale', label: 'למכירה' },
 ];
 
-export default function PropertiesGrid({ properties }: { properties: PropertyRow[] }) {
+/**
+ * The properties grid, reused by the portfolio screen and by a single site or
+ * holder. Only the heading and the header buttons change between them — the
+ * search, the filters, the grid/table toggle and the cards are the same thing
+ * and should stay one implementation, so a fix to a card is a fix everywhere.
+ */
+export default function PropertiesGrid({
+  properties,
+  heading = 'נכסים',
+  sub,
+  showHeaderActions = true,
+  groupByBuilding = true,
+}: {
+  properties: PropertyRow[];
+  heading?: string;
+  sub?: string;
+  /** Off inside a site: "נכס חדש" there would have to mean "in this building",
+   *  which the form has no way to express yet. */
+  showHeaderActions?: boolean;
+  /** Off inside a site: every row is already in the same building, so a header
+   *  naming it would be the page title repeated over the only group. */
+  groupByBuilding?: boolean;
+}) {
   /* Grid or table. Nadlanitor offers the same choice and Shai uses it — at
      portfolio scale a sortable table is the only way to compare flats, while
      the grid is better for a handful. Remembered per device, because whichever
@@ -66,7 +88,9 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
      scattered flats never sees a header — the layer stays invisible instead of
      wrapping every single property in a section of one. Properties with no
      building are gathered last, never hidden. */
-  const grouped = useMemo(() => properties.some((p) => p.building), [properties]);
+  const grouped = useMemo(
+    () => groupByBuilding && properties.some((p) => p.building),
+    [properties, groupByBuilding]);
   const groups = useMemo(() => {
     if (!grouped) return [{ key: 'all', label: '', items: filtered }];
     const byBuilding = new Map<string, { key: string; label: string; items: PropertyRow[] }>();
@@ -88,9 +112,12 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
       {/* ── Large title ─────────────────────────────────── */}
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-[30px] font-bold text-label tracking-tight leading-tight">נכסים</h1>
-          <p className="text-[13px] text-label-tertiary mt-0.5">{properties.length} נכסים בתיק</p>
+          <h1 className="text-[30px] font-bold text-label tracking-tight leading-tight">{heading}</h1>
+          <p className="text-[13px] text-label-tertiary mt-0.5">
+            {sub ?? `${properties.length} נכסים בתיק`}
+          </p>
         </div>
+        {showHeaderActions && (
         <div className="hidden md:flex items-center gap-2 shrink-0">
           <Link
             href="/properties/import"
@@ -107,6 +134,7 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
             <span>נכס חדש</span>
           </Link>
         </div>
+        )}
       </div>
 
       {/* ── Search field (iOS style: filled, rounded, inline clear) ──── */}
