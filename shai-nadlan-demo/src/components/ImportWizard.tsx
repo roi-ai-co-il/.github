@@ -337,7 +337,14 @@ function SourceStep({
       >
         <UploadCloud size={38} className={over ? 'text-accent mx-auto' : 'text-label-tertiary mx-auto'} strokeWidth={1.5} />
         <p className="text-[17px] font-semibold text-label mt-3">גרור לכאן קובץ</p>
-        <p className="text-[13px] text-label-secondary mt-1">‎.xlsx · ‎.csv — או פשוט הדבק כאן טבלה מאקסל (⌘V)</p>
+        {/* Latin runs inside Hebrew need real bidi isolation, not a left-to-right
+            mark: ".xlsx" rendered as "xlsx." and "⌘V" as "V⌘", because the dot
+            and the parentheses are neutral characters that take the paragraph's
+            direction. `dir="ltr"` on a span isolates each run properly. */}
+        <p className="text-[13px] text-label-secondary mt-1">
+          <span dir="ltr">.xlsx</span> · <span dir="ltr">.csv</span>
+          {' — או פשוט הדבק כאן טבלה מאקסל ('}<span dir="ltr">⌘V</span>{')'}
+        </p>
 
         <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
           <button

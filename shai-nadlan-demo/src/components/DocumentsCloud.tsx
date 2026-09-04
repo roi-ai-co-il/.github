@@ -107,7 +107,7 @@ export default function DocumentsCloud({ docs }: { docs: CloudDoc[] }) {
               <button
                 type="button"
                 onClick={() => setType(null)}
-                className={`press rounded-full px-3 py-1.5 text-[13px] font-medium ${
+                className={`press rounded-full px-3 py-1.5 text-[13px] font-medium chip-target ${
                   type === null ? 'bg-accent text-white' : 'bg-fill text-label-secondary'
                 }`}
               >
@@ -118,7 +118,7 @@ export default function DocumentsCloud({ docs }: { docs: CloudDoc[] }) {
                   key={t}
                   type="button"
                   onClick={() => setType(type === t ? null : t)}
-                  className={`press rounded-full px-3 py-1.5 text-[13px] font-medium ${
+                  className={`press rounded-full px-3 py-1.5 text-[13px] font-medium chip-target ${
                     type === t ? 'bg-accent text-white' : 'bg-fill text-label-secondary'
                   }`}
                 >

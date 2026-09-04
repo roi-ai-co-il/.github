@@ -135,7 +135,7 @@ export default function SettingsForm({ settings }: { settings: SettingsRow | nul
                   type="button"
                   onClick={() => setDow(i)}
                   aria-pressed={dow === i}
-                  className={`press rounded-full px-3 py-1.5 text-[13px] font-medium ${
+                  className={`press rounded-full px-3 py-1.5 text-[13px] font-medium chip-target ${
                     dow === i ? 'bg-accent text-white' : 'bg-fill text-label-secondary'
                   }`}
                 >

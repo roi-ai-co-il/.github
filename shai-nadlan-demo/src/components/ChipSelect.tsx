@@ -29,7 +29,7 @@ export default function ChipSelect({
               role="radio"
               aria-checked={active}
               onClick={() => onChange(o.value)}
-              className={`press inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[14px] font-medium border ${
+              className={`press inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[14px] font-medium border chip-target ${
                 active
                   ? 'bg-accent text-white border-accent'
                   : 'bg-surface-sunken text-label-secondary border-separator'

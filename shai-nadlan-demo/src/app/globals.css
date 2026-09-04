@@ -195,6 +195,21 @@ body {
     align-items: center;
     justify-content: center;
   }
+
+  /* A filter chip reads well at 32px and is awkward to hit with a thumb. The
+     taller target is given only to coarse pointers, so the density on a mouse
+     screen is untouched — asking about the pointer rather than the width,
+     because a narrow laptop window still has a mouse.
+     Inside the layer on purpose: an unlayered rule here would outrank every
+     Tailwind utility, which is exactly how a button once rendered on screens
+     it was told to hide from. */
+  @media (hover: none) and (pointer: coarse) {
+    .chip-target {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
 }
 
 /* ── Entrance motion ──────────────────────────────────

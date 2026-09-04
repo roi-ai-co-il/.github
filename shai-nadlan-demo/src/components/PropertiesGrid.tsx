@@ -142,7 +142,7 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
             type="button"
             onClick={() => setViewPersisted(key)}
             aria-pressed={view === key}
-            className={`press flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors ${
+            className={`press chip-target flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors ${
               view === key ? 'bg-surface text-label shadow-sm' : 'text-label-secondary'
             }`}
           >
@@ -158,7 +158,7 @@ export default function PropertiesGrid({ properties }: { properties: PropertyRow
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
-            className={`press shrink-0 px-3.5 py-1.5 rounded-full text-[14px] font-medium ${
+            className={`press shrink-0 px-3.5 py-1.5 rounded-full text-[14px] font-medium chip-target ${
               filter === f.key
                 ? 'bg-accent text-white'
                 : 'bg-surface-sunken text-label-secondary'
