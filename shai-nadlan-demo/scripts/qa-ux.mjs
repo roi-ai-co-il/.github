@@ -172,6 +172,13 @@ for (const vp of VIEWPORTS) {
       colorScheme: scheme, locale: 'he-IL',
     });
     await ctx.addCookies([sessionCookie(session, BASE)]);
+    /* The app does not read prefers-color-scheme at all: dark is a manual
+       toggle kept in localStorage and applied as a class before first paint.
+       Setting only the OS preference audited the light theme twice and called
+       half of it "dark". */
+    await ctx.addInitScript((want) => {
+      try { localStorage.setItem('theme', want); } catch { /* private mode */ }
+    }, scheme);
 
     for (const route of ROUTES) {
       const where = `${route} [${vp.name}/${scheme}]`;
@@ -200,6 +207,11 @@ for (const vp of VIEWPORTS) {
         ).catch(() => {});
         await page.waitForTimeout(500);
         if ((res?.status() ?? 0) >= 400) note(where, 'http', String(res.status()));
+
+        const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
+        if (isDark !== (scheme === 'dark')) {
+          note(where, 'theme did not apply', `asked for ${scheme}, page is ${isDark ? 'dark' : 'light'}`);
+        }
 
         const a = await page.evaluate(AUDIT);
         checks++;
