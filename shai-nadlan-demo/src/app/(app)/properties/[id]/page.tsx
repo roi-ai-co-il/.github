@@ -15,6 +15,7 @@ import PaymentsCard from '@/components/PaymentsCard';
 import PropertyDocuments from '@/components/PropertyDocuments';
 import RepairsList from '@/components/RepairsList';
 import type { RepairRow } from '@/lib/repairs';
+import { impactLines } from '@/lib/delete-impact';
 import CpiUpdateButton from '@/components/CpiUpdateButton';
 
 export const dynamic = 'force-dynamic';
@@ -56,6 +57,36 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
       .order('reported_on', { ascending: false }),
     supabase.from('vendors').select('id, name, trade').order('name'),
   ]);
+
+  /* What a delete would really take with it. Counted, not guessed — the FKs
+     cascade from the property through its leases to every payment and every
+     receipt issued for them, and the confirmation has to say so. Counts only;
+     no row bodies cross the wire. */
+  const leaseIds = (leases ?? []).map((l) => l.id);
+  const countOf = async (
+    table: 'lease_payments' | 'receipts',
+    column: string,
+    ids: string[],
+  ) => {
+    if (!ids.length) return 0;
+    const { count } = await supabase
+      .from(table)
+      .select('id', { count: 'exact', head: true })
+      .in(column, ids);
+    return count ?? 0;
+  };
+  const paymentIds = leaseIds.length
+    ? ((await supabase.from('lease_payments').select('id').in('lease_id', leaseIds)).data ?? [])
+        .map((r) => r.id)
+    : [];
+  const deleteImpact = impactLines({
+    leases: leaseIds.length,
+    lease_payments: paymentIds.length,
+    receipts: await countOf('receipts', 'payment_id', paymentIds),
+    property_documents: (documents ?? []).length,
+    property_images: (images ?? []).length,
+    repairs: (repairs ?? []).length,
+  });
 
   const activeLease = (leases ?? []).find((l) => l.status === 'active');
   const { data: payments } = activeLease
@@ -126,6 +157,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             ? { id: activeLease.id, tenantName: activeLease.tenant?.full_name ?? 'השוכר', startDate: activeLease.start_date, endDate: activeLease.end_date }
             : null
         }
+        deleteImpact={deleteImpact}
       />
 
       <PropertyGallery

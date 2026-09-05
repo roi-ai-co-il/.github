@@ -23,10 +23,13 @@ export default function PropertyActions({
   propertyId,
   propertyName,
   activeLease,
+  deleteImpact = [],
 }: {
   propertyId: string;
   propertyName: string;
   activeLease: { id: string; tenantName: string; startDate: string; endDate: string } | null;
+  /** What else the delete destroys, counted from the database. */
+  deleteImpact?: { label: string; count: number }[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -131,10 +134,21 @@ export default function PropertyActions({
         onConfirm={endLease}
         onCancel={() => setConfirm(null)}
       />
+      {/* The dialog used to say "including its contracts and images". The
+          delete actually cascades much further — rent history, issued receipts,
+          uploaded documents, repairs — so the sentence was true and badly
+          incomplete, which is the worst kind of warning. It now names what is
+          really there, counted from the database at the moment you open it. */}
       <ConfirmDialog
         open={confirm === 'delete'}
         title="למחוק את הנכס?"
-        message={`״${propertyName}״ יימחק לצמיתות, כולל החוזים והתמונות שלו.`}
+        message={
+          deleteImpact.length
+            ? `״${propertyName}״ יימחק לצמיתות, ואיתו ${
+                deleteImpact.map((i) => `${i.count} ${i.label}`).join(' · ')
+              }. אי אפשר לבטל.`
+            : `״${propertyName}״ יימחק לצמיתות. אי אפשר לבטל.`
+        }
         confirmLabel="מחיקה"
         danger
         onConfirm={deleteProperty}

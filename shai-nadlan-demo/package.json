@@ -15,7 +15,9 @@
     "qa:auth": "node scripts/qa-auth.mjs",
     "test:nav": "node scripts/test-nav-coverage.mjs",
     "qa:registry": "node scripts/qa-registry.mjs",
-    "qa:repairs": "node scripts/qa-repairs.mjs"
+    "qa:repairs": "node scripts/qa-repairs.mjs",
+    "test:drift": "node scripts/test-migration-drift.mjs",
+    "test:delete": "node scripts/test-delete-impact.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
