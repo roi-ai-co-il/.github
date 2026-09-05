@@ -100,6 +100,25 @@ for (const reg of REGISTRIES) {
     }
   }
 
+  /* A site holding several units must not be NAMED like a single home.
+   * "בית רוטשילד" is ordinary Israeli usage for an apartment block, but on a
+   * screen that then says "6 נכסים" it reads as six flats inside somebody's
+   * house — which is exactly how Royi read it. Only flagged for sites with
+   * more than one unit: a one-property site called בית X is fine. */
+  if (reg.table === 'buildings') {
+    const HOUSE_WORDS = ['בית ', 'וילה', 'הווילה', 'קוטג'];
+    for (const row of rows) {
+      const units = await get(`properties?select=id&${reg.fk}=eq.${row.id}`);
+      const reads_as_a_home = HOUSE_WORDS.some((w) => row.name.startsWith(w) || row.name.includes(` ${w}`));
+      if (units.length > 1 && reads_as_a_home) {
+        failures.push(
+          `אתר "${row.name}" holds ${units.length} נכסים but is named like a single home. ` +
+          `Use בניין/מגדל/מתחם so the count does not read as flats inside a house.`);
+        console.log(`✗ ${reg.label} ${row.name} — named like a home, holds ${units.length}`);
+      }
+    }
+  }
+
   /* The list itself must point at the detail screen, not at a filtered list
    * whose filter nobody reads. */
   await page.goto(`${BASE}/${reg.path}`, { waitUntil: 'networkidle' });

@@ -38,7 +38,11 @@ export const ENTITIES = [
 ];
 
 export const BUILDINGS = [
-  { key: 'rothschild', name: 'בית רוטשילד', address: 'רוטשילד 12', city: 'תל אביב',
+  /* Named 'בניין רוטשילד' and not 'בית רוטשילד': a site holds six separate
+     units, and "6 נכסים בבית רוטשילד" reads like six flats inside somebody's
+     house. 'בית X' is ordinary Israeli usage for an apartment block, but the
+     demo has to be unambiguous on first read. */
+  { key: 'rothschild', name: 'בניין רוטשילד', address: 'רוטשילד 12', city: 'תל אביב',
     entity: 'private', notes: 'בניין באוהאוס משומר, 4 קומות. ועד בית פעיל, אין מעלית.' },
   { key: 'weizmann', name: 'מגדל ויצמן', address: 'ויצמן 8', city: 'רמת גן',
     entity: 'partnership', notes: 'מגדל מגורים חדש עם לובי, חניון תת־קרקעי ומעליות.' },
@@ -51,7 +55,7 @@ export const VENDORS = [
   { name: 'שיפוצי הדר', trade: 'שיפוצים', phone: '0526789014', notes: 'עושים את השיפוץ בחיפה.' },
   { name: 'ניקיון פלוס', trade: 'ניקיון', phone: '0547890125', notes: 'ניקיון בין דיירים.' },
   { name: 'עו״ד רונית שמש', trade: 'עורך דין', phone: '0508901236', email: 'ronit@shemesh-law.co.il', notes: 'חוזי שכירות ופינויים.' },
-  { name: 'מעליות שחר', trade: 'מעליות', phone: '0529012347', notes: 'הצעת מחיר למעלית בבית רוטשילד.' },
+  { name: 'מעליות שחר', trade: 'מעליות', phone: '0529012347', notes: 'הצעת מחיר למעלית בבניין רוטשילד.' },
 ];
 
 /**
@@ -62,7 +66,7 @@ export const VENDORS = [
  *   'none'    nothing paid yet (a lease that only just started)
  */
 export const PROPERTIES = [
-  /* ---- בית רוטשילד, תל אביב ------------------------------------------ */
+  /* ---- בניין רוטשילד, תל אביב ------------------------------------------ */
   {
     image: 'p01-tlv-flat-3r', gallery: ['g-rothschild-exterior'],
     name: 'רוטשילד 12, דירה 3', address: 'רוטשילד 12 קומה 1 דירה 3', city: 'תל אביב',
@@ -251,7 +255,7 @@ export const TASKS = [
     due: day(4), notes: 'עברה שנה מהעדכון האחרון.' },
   { title: 'לגבות פיקדון מאלפא ייעוץ', property: 'משרד 3, ויצמן 8',
     due: day(2), notes: '15,600 ₪ שעדיין לא נגבו.' },
-  { title: 'לקבל הצעת מחיר למעלית בבית רוטשילד', due: day(21),
+  { title: 'לקבל הצעת מחיר למעלית בבניין רוטשילד', due: day(21),
     notes: 'מעליות שחר. ועד הבית מוכן להשתתף בחצי.' },
   { title: 'לתאם ריצוף בדירה בחיפה', property: 'הרצל 22, חיפה',
     due: day(9), notes: 'שיפוצי הדר. לבחור גוון לפני שמזמינים.' },
